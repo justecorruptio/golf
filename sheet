@@ -1,0 +1,71 @@
+<script>
+//(o=b=>{for(j in a)for(i in a)y=a[i]+-~j,b?document.write([["<p>"][i]]+`<input onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="ABCD")
+//(o=b=>{for(j in a)for(i in a)y=a[i]+-~j,b?document.write([["<p>"][i]]+`<input onfocus=${v='value'}=[o[id]] onblur=o[id]=${v};o() id=${y}>`):eval(y+("."+v+o[y]).replace(/[A-Z]\d/g," +$&."+v))})(a="ABCD")
+//(o=b=>{for(j in a)for(i in a)y=a[i]+j,b?document.write(`<${+i*+j?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="_ABCD")
+//(o=b=>{for(j in a)for(i in a)y=a[i]+j,b?document.write(`<${i*j?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="_ABCD")
+
+//(o=b=>{for(i=0;i<20;i++)y=a[i%5]+~~(i/5+1),b?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="_ABCD")
+//(o=b=>{for(i=0;i<20;i++)y=a[i%5]+-~(i/5),b?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="_ABCD")
+//(o=b=>{for(i=0;i<20;i++)y="_ABCD"[i%5]+-~(i/5),b?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(1)
+//(o=b=>{for(i=0;i<20;i++)y="_ABCD"[i%5]+-~(i/5),b?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v))})(v=".value")
+//(o=b=>{for(i=0;i<20;)y="ABCD"[i%5]+-~(i++/5),b?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v))})(v=".value")
+//(o=b=>{for(i=0;i<20;b?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)))y="ABCD"[i%5]+-~(i++/5)})(v=".value")
+//(o=v=>{for(i=0;i<20;!v?document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o('.value') id=${y}>`):eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)))y="ABCD"[i%5]+-~(i++/5)})()
+//(o=v=>{for(i=0;i<20;v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(`<${i%5?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o('.value') id=${y}>`))y="ABCD"[i%5]+-~(i++/5)})()
+//(o=v=>{for(i=0;i<20;v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(`<${y?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o('.value') id=${y}>`))y="ABCD"[i%5]+-~(i++/5)})()
+//(o=v=>{for(i=0;i<20;v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(`<${y?'input id='+y:'p'} onfocus=value=[o[id]] onblur=o[id]=value;o('.value')>`))y="ABCD"[i%5]+-~(i++/5)})()
+//(o=v=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(`<${y?'input id='+y:'p'} onfocus=value=[o[id]] onblur=o[id]=value;o('.value')>`)})()
+
+// With labels
+//(o=b=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),b?document.write(y?y+b+y:'<p',` onfocus=value=[o[id]] onblur=o[id]=value,o()>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})`<input id=`
+//(o=v=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y?y+'<input id='+y:'<p',` onfocus=value=[o[id]] onblur=o[id]=value;o('.value')>`)})()
+//(o=v=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ',`<input id=${y} onfocus=value=[o[id]] onblur=o[id]=value;o('.value')>`)})()
+//(o=v=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ','<input id=',y,' onfocus=value=[o[id]] onblur=o[id]=value;o`.value`>')})()
+//(o=v=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y?y+'<input id='+y:'<p',' onfocus=value=[o[id]] onblur=o[id]=value;o`.value`>')})()
+//(o=v=>{for(i in z='<input onblur=o[id]=value;o`.value` id=')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ',z,y,' onfocus=value=[o[id]]>')})()
+//(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y?y+'<input onfocus=value=[o[id]] id='+y:'<p',z)})()
+//(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ','<input onfocus=value=[o[id]] id=',y,z)})()
+
+(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ','<input onfocus=value=[o[id]] id=',y,z)})()
+
+
+
+
+
+//(r=c=>((z=l[y])&&c&&eval(y+`.value=+(_=0,_+${z.replace(/[A-Z]\d/g,'(y="$&",+r(c-1))')})`)),o=b=>{for(j in a="_ABCD")for(i in a)y=a[i]+j,b?document.write(`${i*j?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(i*j&&99)})(o(l=localStorage))
+//r=c=>(z=l[y])&&c&&eval(y+`.value=+(_=0,_+${z.replace(/[A-Z]\d/g,'(y="$&",+r(c-1))')})`),o=b=>{for(i=0;i<20;i++)y="_ABCD"[i%5]+-~(i/5),b?document.write(`${i%5?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(i%5&&99)};o(o(l=localStorage))
+//r=c=>(z=l[y])&&c&&eval(y+`.value=+(_=0,_+${z.replace(/[A-Z]\d/g,'(y="$&",+r(c-1))')})`),o=b=>{for(i=0;i<20;)y="ABCD"[i%5]+-~(i++/5),b?document.write(`${i%5?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(i%5&&99)};o(o(l=localStorage))
+//r=c=>(z=l[y])&&c&&eval(y+`.value=+(_=0,_+${z.replace(/[A-Z]\d/g,'(y="$&",+r(c-1))')})`),o=b=>{for(i=0;i<20;)y="ABCD"[i%5]+-~(i++/5),b?document.write(`${y?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(i%5*99)};o(o(l=localStorage))
+//r=c=>(z=l[y])&&c&&eval(y+`.value=+(_=0,_+${z.replace(/[A-Z]\d/g,'(y="$&",+r(c-1))')})`),o=b=>{for(i=0;i<20;b?document.write(`${y?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(i%5*99))y="ABCD"[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>l[y]&&g--&&eval(y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,'(+r("$&"))')})`),o=b=>{for(i=0;i<20;b?document.write(`${y?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(y,g=i%5*99))y="ABCD"[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>l[y]&&g--&&eval(y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,'(+r("$&"))')})`),o=b=>{for(i=0;i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y,g=i%5*99))y="ABCD"[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>l[y]&&0<c--&&eval(y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`)||0,o=b=>{for(i=0;i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y,c=99))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>0<--c&&l[y]&&eval(y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`)||0,o=b=>{for(i=0;i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y,c=99))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>eval(0<--c&&l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y,c=99))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;c=i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
+//r=y=>c++<99&&eval(l[y]&&y+`.value=(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+//r=y=>c++<99&&eval(l[y]&&y+`.value=(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+
+
+
+//r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;c=i<20;)y='ABCD'[i%5]+-~(i++/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+//r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=1;i<5;i++)for(j=0;c=j<5;j++)y='ABCD'[j]+i,b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+//r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;++i<5;)for(j=5;c=j--;)y='DCBA'[j]+i,b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+//r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;++i<5;)for(j=5;c=j--;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y))y='DCBA'[j]+i};o(o(l=localStorage))
+//o=b=>{for(i=0;++i<5;r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`))for(j=5;c=j--;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y))y='DCBA'[j]+i};o(o(l=localStorage))
+
+
+
+//r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>eval("y='ABCD'[i%5]+-~(i++/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y);".repeat(20,c=i=0));o(o(l=localStorage))
+//r=y=>c++<99&&l[y]?top[y].value=+eval('_=0,_+'+l[y].replace(/[A-Z]\d/g,r)):0,o=b=>{for(i=0;c=i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
+
+//r=y=>c++<99&&eval(l[y]&&y+`.value=(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+//r=y=>c++<99&&l[y]?top[y].value=eval('_=0,_+'+l[y].replace(/[A-Z]\d/g,r)):0,o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
+
+
+
+
+
+
+
+</script>
