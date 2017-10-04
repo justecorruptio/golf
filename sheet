@@ -60,36 +60,7 @@
 // String support
 //r=y=>`(${y}.value=[x${/^=/.test(z=l[y])?z.replace(/[A-Z]\d/g,c++<99&&r):'=l.'+y}],x-~x?+x:x)`,o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):eval(r(y))};o(o(l=localStorage))
 
-function r(){
-    for(c=5;c--;) {
-        for(i in {}+{}) {
-            y='ABCD'[i%5]+-~(i/5);
-            if(!y){continue}
-            if(/^=/.test(l[y])){
-                with(o)top[y].value=[eval('x'+l[y])];
-            }
-            else {
-                top[y].value=[x=l[y]];
-            }
-            o[y]=eval('x-~x?+x:x');
-        }
-    }
-}
-
-function o(b){
-    if (b){
-        for(i in {}+{}) {
-            y='ABCD'[c=i%5]+-~(i/5);
-            o[y]=0;
-            document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`)
-        }
-    } else {
-        r()
-    }
-}
-
-o(l=localStorage);
-o();
+o=b=>{for(c=b?1:99;c--;)for(i in{}+{}){y='ABCD'[i%5]+-~(i/5);b&&document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`);if(!b)with(o)top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],o[y]=x-~x?+x:x;}};o(o(l=localStorage))
 
 
 
