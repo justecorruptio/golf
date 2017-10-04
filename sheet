@@ -75,14 +75,20 @@
 //o=b=>{for(i=0;i<(b?30:3e2);){y='ABCD'[i%5]+-~(i++%30/5);with(Math)with(b||o)b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):o[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x}};o(o(l=localStorage))
 //o=b=>{for(i=0;i<(b?30:3e2);){y='ABCD'[i%5]+-~(i++%30/5);with(b||Math)b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):Math[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x}};o(o(l=localStorage))
 //i=269;o=b=>{while(++i%3e2){y='ABCD'[i%5]+-~(i%30/5);with(b||Math)b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):Math[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x}};o(o(l=localStorage))
-i=269;o=b=>{while(++i%3e2){y='ABCD'[i%5]+-~(i%30/5);with(b||Math)b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):Math[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x}};o(o(l=localStorage))
+//i=269;o=b=>{while(++i%3e2){y='ABCD'[i%5]+-~(i%30/5);with(M=Math)b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x}};o(o(l=localStorage))
+//i=269;o=b=>{while(++i%3e2)with(y='ABCD'[i%5]+-~(i%30/5),M=Math)b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
+
+//Fixed inifinte Loops:
+//i=269;o=b=>{while(++i%3e2)with(M=Math)M[y='ABCD'[i%5]+-~(i%30/5)]='',b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
+i=269;o=b=>{while(++i%3e2)with(M=Math)M[y='ABCD'[i%5]+-~(i%30/5)]='',b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
 
 
 
 
 
+// placeholders
+//i=269;o=b=>{while(++i%3e2){y='ABCD'[i%5]+-~(i%30/5);with(b||Math)b?document.write(y?'<input id='+y:'<p',` placeholder=${y} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):Math[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x}};o(o(l=localStorage))
 
 
-//w=(y,z)=>y+`.value=[x${/^=/.test(z)?z.replace(/[A-Z]\d/g,c++<99&&r):'=l.'+y}]`,r=y=>`(${w(y,l[y])},x-~x?+x:x)`,o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',` onfocus=eval(w(id)) onblur=l[id]=value,o()>`):eval(r(y))};o(o(l=localStorage))
 
 </script>
