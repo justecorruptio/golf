@@ -25,9 +25,8 @@
 //(o=v=>{for(i in{}+{})y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y?y+'<input id='+y:'<p',' onfocus=value=[o[id]] onblur=o[id]=value;o`.value`>')})()
 //(o=v=>{for(i in z='<input onblur=o[id]=value;o`.value` id=')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ',z,y,' onfocus=value=[o[id]]>')})()
 //(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y?y+'<input onfocus=value=[o[id]] id='+y:'<p',z)})()
-//(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ','<input onfocus=value=[o[id]] id=',y,z)})()
 
-(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ','<input onfocus=value=[o[id]] id=',y,z)})()
+//(o=v=>{for(i in z=' onblur=o[id]=value;o`.value`>')y="ABCD"[i%5]+-~(i/5),v?eval(y+(v+o[y]).replace(/[A-Z]\d/g," +$&"+v)):document.write(y||'<p ','<input onfocus=value=[o[id]] id=',y,z)})()
 
 
 //(r=c=>((z=l[y])&&c&&eval(y+`.value=+(_=0,_+${z.replace(/[A-Z]\d/g,'(y="$&",+r(c-1))')})`)),o=b=>{for(j in a="_ABCD")for(i in a)y=a[i]+j,b?document.write(`${i*j?y+'<input id='+y:'<p'} onfocus=value=[l[id]] onblur=l[id]=value,o()>`):r(i*j&&99)})(o(l=localStorage))
@@ -42,8 +41,6 @@
 //r=y=>eval(0<--c&&l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y,c=99))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
 //r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;c=i<20;b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y))y='ABCD'[i%5]+-~(i++/5)};o(o(l=localStorage))
 //r=y=>c++<99&&eval(l[y]&&y+`.value=(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
-//r=y=>c++<99&&eval(l[y]&&y+`.value=(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
-
 
 
 //r=y=>c++<99&&eval(l[y]&&y+`.value=+(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i=0;c=i<20;)y='ABCD'[i%5]+-~(i++/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
@@ -60,7 +57,8 @@
 //r=y=>c++<99&&eval(l[y]&&y+`.value=(_=0,_+${l[y].replace(/[A-Z]\d/g,r)})`),o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
 //r=y=>c++<99&&l[y]?top[y].value=eval('_=0,_+'+l[y].replace(/[A-Z]\d/g,r)):0,o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',' onfocus=value=[l[id]] onblur=l[id]=value,o()>'):r(y)};o(o(l=localStorage))
 
-
-
+// String support
+//r=y=>`(${y}.value=[x${/^=/.test(z=l[y])?z.replace(/[A-Z]\d/g,c++<99&&r):'=l.'+y}],x-~x?+x:x)`,o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):eval(r(y))};o(o(l=localStorage))
+r=y=>`(${y}.value=[x${/^=/.test(z=l[y])?z.replace(/[A-Z]\d/g,c++<99&&r):'=l.'+y}],x-~x?+x:x)`,o=b=>{for(i in{}+{})y='ABCD'[c=i%5]+-~(i/5),b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):eval(r(y))};o(o(l=localStorage))
 
 </script>

@@ -2,6 +2,21 @@
 <body onload="['down','press','up'].map(x=>eval(`onkey${x}=e=>b.innerHTML+='<p>key${x} '+e.which`))"id=b>
 <body onload='eval("down;press;up".replace(/\w+/g,"onkey$&=e=>b.innerHTML+=`<p>key$& `+e.which"))'id=b>
 <body onload='eval("down;press;up".replace(/\w+/g,"onkey$&=e=>b.innerText+=`\nkey$& `+e.which"))'id=b>
+<body onload="for(a in b)b[a[4]>'w'&&a]=e=>b.innerHTML+=`<p>${e.type} `+e.which"id=b>
+<body onload="for(a in b)b[a[4]>'x'&&a]=e=>b.innerText+=`\n${e.type} `+e.which"id=b>
+
+<body onload="for(a in b)b[a[4]>'x'&&a]=e=>b.innerText+=`
+${e.type} `+e.which"id=b>
+
+<body onload="for(a in b)b[a[4]>'x'&&a]=e=>b.innerText+=`
+`+[e.type,e.which]"id=b>
+
+<body onload="for(let a in b)b[a[4]>'x'&&a]=e=>b.innerText+=`
+`+[a,e.which]"id=b>
+
+<body onload="for(let a in b)b[a[4]>'x'&&a]=e=>b.innerText+=[a,e.which]+`
+`"id=b>
 -->
 
-<body onload='eval("down;press;up".replace(/\w+/g,"onkey$&=e=>b.innerText+=`\nkey$& `+e.which"))'id=b>
+<body onload="for(let a in b)b[a[4]>'x'&&a]=e=>b.innerText+=[a,e.which]+`
+`"id=b>

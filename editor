@@ -2,6 +2,6 @@
 <iframe onload='id++<3?outerHTML+=`<textarea oninput="f.srcdoc=t1.value+\`<script>\${t2.value}</script><style>\`+t3.value"id=t${id} rows=9>`:id="f"'>
 <iframe onload='id++<3?outerHTML+=`<textarea oninput="f[id]=value;f.srcdoc=f[1]+\`<script>\${f[2]}</script><style>\`+f[3]"id=${id} rows=9>`:id="f"'>
 <iframe onload='id++<3?outerHTML+=`<textarea oninput="f[${id}]=value;f.srcdoc=f[1]+\`<script>\${f[2]}</script><style>\`+f[3]"rows=9>`:id="f"'>
--->
 
+-->
 <iframe onload='id++<3?outerHTML+=`<textarea oninput="f[${id}]=value;f.srcdoc=f[1]+\`<script>\${f[2]}</script><style>\`+f[3]"rows=9>`:id="f"'>
