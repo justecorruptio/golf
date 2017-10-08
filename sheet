@@ -1,5 +1,35 @@
 <!-- vi:syntax=html
 --><script>
+/*
+localStorage.clear();
+
+localStorage.A1 = "=A2+1";
+localStorage.A2 = "=A3+1";
+localStorage.A3 = "=A4+1";
+localStorage.A4 = "1";
+
+localStorage.B1 = "=1.1";
+localStorage.B2 = "1.1";
+localStorage.B3 = "=B1+B2*10";
+localStorage.B4 = "0";
+
+localStorage.C1 = "=C1+1";
+localStorage.C2 = "=C3+1";
+localStorage.C3 = "=C2+1";
+localStorage.C4 = "=D4";
+
+
+localStorage.D1 = "=D2+D3";
+localStorage.D2 = "=D1+D3";
+localStorage.D3 = "=D1+D2";
+localStorage.D4 = "1";
+
+localStorage.A5 = "TEST";
+localStorage.B5 = "=B2**8";
+localStorage.C5 = "=Math.sqrt(B5)";
+localStorage.D5 = "=-~(C5<<2)";
+*/
+
 //(o=b=>{for(j in a)for(i in a)y=a[i]+-~j,b?document.write([["<p>"][i]]+`<input onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="ABCD")
 //(o=b=>{for(j in a)for(i in a)y=a[i]+-~j,b?document.write([["<p>"][i]]+`<input onfocus=${v='value'}=[o[id]] onblur=o[id]=${v};o() id=${y}>`):eval(y+("."+v+o[y]).replace(/[A-Z]\d/g," +$&."+v))})(a="ABCD")
 //(o=b=>{for(j in a)for(i in a)y=a[i]+j,b?document.write(`<${+i*+j?'input':'p'} onfocus=value=[o[id]] onblur=o[id]=value;o() id=${y}>`):eval(y+(".value"+o[y]).replace(/[A-Z]\d/g," +$&.value"))})(a="_ABCD")
@@ -80,8 +110,8 @@
 
 //Fixed inifinte Loops:
 //i=269;o=b=>{while(++i%3e2)with(M=Math)M[y='ABCD'[i%5]+-~(i%30/5)]='',b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
-i=269;o=b=>{while(++i%3e2)with(M=Math)M[y='ABCD'[i%5]+-~(i%30/5)]='',b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
-
+//i=269;o=b=>{while(++i%3e2)with(M=Math)M[y='ABCD'[i%5]+-~(i%30/5)]=b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
+i=269;o=b=>{while(++i%3e2)with(M=Math)M[y='ABCD'[i%5]+-~(i%30/5)]=b?document.write(y?y+'<input id='+y:'<p',` onfocus=value=[l[id]] onblur=l[id]=value,o()>`):M[top[y].value=[/^=/.test(z=l[y])?eval('x'+z):x=z],y]=x-~x?+x:x};o(o(l=localStorage))
 
 
 

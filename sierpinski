@@ -1,0 +1,16 @@
+<!-- vi:syntax=html
+<svg onload='for(i=0;i<4<<8;)i++%63>30&&write(i%31.5?i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=0;i<4<<8;)i++%63>30&&write(i%63?i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=1024;i;)(--i-1)%63>30&&write(i%31.5?i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=1024;i--;)(i-1)%63>30&&write(i%63?i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=1024;z=--i%63,i;)!z||z>31?write(z?i&i>>5?`_`:0:`<br>`):0'>
+<svg onload='for(i=1024;z=--i%63,i;)write(z&&z<32?``:z?i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=1024;z=--i%63,i;)write(z?z<32?``:i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=1024;i--;)write(i%63?i%63<32?``:i&i>>5?`_`:0:`<br>`)'>
+
+
+<svg onload='for(i=4096;i--;)write(i%127?i%127<64?``:i&i>>6?`_`:0:`<br>`)'>
+<svg onload='for(i=4096;z=--i%127;)write(z?z<64?``:i&i>>6?`_`:0:`<br>`)'>
+-->
+
+<svg onload='for(i=1024;i--;)write(i%63?i%63<32?``:i&i>>5?`_`:0:`<br>`)'>

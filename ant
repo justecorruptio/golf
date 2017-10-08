@@ -1,0 +1,3 @@
+<!-- vi:syntax=html
+-->
+<canvas id=a onclick=p=d=6e3;setInterval('a.getContext`2d`[(a[p+=[-1,-v,1,v][d=a[p]-~d&3]]^=2)?"fillRect":"clearRect"](p/v,p%v,1,1)',v=99)>
