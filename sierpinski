@@ -7,10 +7,16 @@
 <svg onload='for(i=1024;z=--i%63,i;)write(z&&z<32?``:z?i&i>>5?`_`:0:`<br>`)'>
 <svg onload='for(i=1024;z=--i%63,i;)write(z?z<32?``:i&i>>5?`_`:0:`<br>`)'>
 <svg onload='for(i=1024;i--;)write(i%63?i%63<32?``:i&i>>5?`_`:0:`<br>`)'>
-
+<svg onload='for(i=1040;i--;)write(i%63<32?(i-=31,`<br>`):i&i>>5?`_`:0)'>
+<svg onload='for(i=1024;i--;)write(i%63?i%63<32?``:i&i>>5&&`_`:`<br>`)'>
 
 <svg onload='for(i=4096;i--;)write(i%127?i%127<64?``:i&i>>6?`_`:0:`<br>`)'>
-<svg onload='for(i=4096;z=--i%127;)write(z?z<64?``:i&i>>6?`_`:0:`<br>`)'>
+<svg onload='for(i=4096;z=--i%127,i;)write(z?z<64?``:i&i>>6?`_`:0:`<br>`)'>
+<svg onload='for(i=4096;i--;write(z?z<64?``:i&i>>6?`_`:0:`<br>`))z=i%127'>
+<svg onload='for(i=4096;i--;write(z?z<64?``:i&i>>6&&`_`:`<br>`))z=i%127'>
+
+<svg onload='for(i=1024;i--;)write(i%63<32?`<p>`:i&i>>5?`_`:0)'>
+<svg onload='for(i=1024;i--;)write(i%63<32?`<p>`:i&i>>5&&`_`)'>
 -->
 
-<svg onload='for(i=1024;i--;)write(i%63?i%63<32?``:i&i>>5?`_`:0:`<br>`)'>
+<svg onload='for(i=1024;i--;)write(i%63?i%63<32?``:i&i>>5&&7:`<br>`)'>

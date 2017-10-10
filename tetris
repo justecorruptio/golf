@@ -1,0 +1,42 @@
+<!-- vi:syntax=html
+-->
+<b id=Z>
+
+<script>
+W=12;
+score = 0;
+display = (board) => {
+    z = '';
+    for(i = 19; i >=0 ; i--) {
+        for(j = 0; j < W; j++) {
+            z+=board[i * W + j] ? '&#65327; ' : '&#12288; ';
+        }
+        z += '<br>';
+    }
+    Z.innerHTML = z
+};
+
+rotate = (v, t) => {
+    f = t == 0 ? 3 : t == 5 ? 1 : 2;
+    a = 0|(v/W); b = v % W;
+    return b * W + f - a;
+};
+
+add_t = (board, t, r) => {
+    T = [[0,1,2,3],[0,1,2,10],[0,1,2,11],[0,1,2,12],[1,2,10,11],[0,1,-10,-11],[0,1,11,12]];
+    V = T[t];
+    for(i=0; i<4; i++){
+        v = V[i] + W;
+        for(j=0;j<r;j++){
+            v = rotate(v, t);
+        }
+        console.debug(v);
+        board[v + 5 + 30] = 1;
+    }
+    console.debug(board)
+};
+
+board = [];
+add_t(board, 1, 3);
+display(board);
+</script>
