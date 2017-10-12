@@ -1,29 +1,10 @@
-<!-- vi:syntax=html
--->
-<pre id=Z>
-
-<script>
+<pre id=Z><script>
 q=0;
 
 S = 0;
 B = [];
 
 display = () => {
-    z = S;
-    d=[];
-    for(i = 19; i >=0 ; i--) {
-        z += '\n';
-        for(j = 10; j;) z+=C[i] >> --j & 1 ? 'O ' : '- ';
-        if(B[i]==1023) { S++;}
-        else { d.unshift(B[i]);}
-    }
-    Z.innerText = z
-    B=d;
-    if(B[19]){
-        alert('final score: ' + S);
-        B=[];S=0;
-        reset();
-    }
 };
 
 U = '67686960090118';
@@ -39,8 +20,8 @@ check = (s) => {
         }
         a+=x;b+=y;
         if(s){
-            if(a<0||a>=10){undo()}
-            if(b < 0 || B[b] >> a & 1){undo(); h=1;}
+            if(a<0||a>=10)[x,y,r] = u;
+            if(b < 0 || B[b] >> a & 1){[x,y,r] = u;h=1;}
         }
         else{
             C[b] |= 1 << a;
@@ -53,10 +34,6 @@ reset = () => {
     x = 4;
     r = 0;
     t = q % 7;
-};
-
-undo = () => {
-    [x,y,r] = u;
 };
 
 reset();
@@ -73,7 +50,14 @@ setInterval(onkeyup = e =>{
     check(1);
     check(0);
     if(h&&!e){B=C;reset()};
-    display();
+
+    B=B.filter(_=>_-1023?_:++S-S)
+    z = S;
+    for(i = 19; i-- ;) {
+        z += '\n';
+        for(j = 10; j--;) z+=C[i] >> j & 1 ? 'O ' : '- ';
+    }
+    Z.innerText = z;
 }, 200);
 
 </script>
