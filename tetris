@@ -3,55 +3,43 @@
 <pre id=Z>
 
 <script>
-W=10;
-score = 0;
 q=0;
+
+S = 0;
 B = [];
 
-gameover = () => {
-    alert('final score: ' + score);
-    B=[];score=0;
-    reset();
-}
 display = () => {
-    z = score + '\n';
+    z = S;
     d=[];
     for(i = 19; i >=0 ; i--) {
-        for(j = 0; j < W; j++) {
-            v = C[i] >> j & 1;
-            z+=v ? 'O ' : '- ';
-        }
         z += '\n';
-        if(B[i]==1023) { score++;}
+        for(j = 10; j;) z+=C[i] >> --j & 1 ? 'O ' : '- ';
+        if(B[i]==1023) { S++;}
         else { d.unshift(B[i]);}
     }
     Z.innerText = z
     B=d;
-    if(B[19])gameover();
+    if(B[19]){
+        alert('final score: ' + S);
+        B=[];S=0;
+        reset();
+    }
 };
 
-get_coord = () => {
-    U = '67686960090118';
-    ret = [];
-    for(i=0; i<4; i++){
+U = '67686960090118';
+
+check = (s) => {
+    C = [...B];
+    for(i = 0; i < 4;i++){
         v = i<2 ?i+4 : +U[t*2 + i - 2];
         a = 0|(v/4); b = v % 4;
         f = t == 0 ? 3 : t == 5 ? 1 : 2;
         for(j=0;j<r;j++){
             [a,b]=[b,f-a];
         }
-        ret[i] = [a + x,b + y];
-    }
-    return ret;
-};
-
-check = (s) => {
-    C = [...B];
-    D = get_coord();
-    for(i = 0; i < 4;i++){
-        [a,b] = D[i];
+        a+=x;b+=y;
         if(s){
-            if(a<0||a>=W){undo()}
+            if(a<0||a>=10){undo()}
             if(b < 0 || B[b] >> a & 1){undo(); h=1;}
         }
         else{
@@ -80,7 +68,7 @@ setInterval(onkeyup = e =>{
     g = e && e.which - 38;
     g == 0 ? (r = (r+1)&3) :
     g == 2 || !e ? (y -= 1) :
-    x += g;
+    x -= g;
     h=0;
     check(1);
     check(0);
