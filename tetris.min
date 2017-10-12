@@ -1,0 +1,2 @@
+<pre id=Z><script>x=4;y=20;B=[t=r=S=q=0];setInterval(onkeyup=e=>{u=[x,y,r];e?(g=e.which-38)?g-2?x-=g:y--:r++:y--;C=[...B,h=0];for(s=2;s--;q++)for(i=4;i--;s?a<0|a>9|(h|=b<0|B[b]>>a&1)?[x,y,r]=u:0:C[b]|=1<<a){a=i<2?i+4:'01686960091867'[t*2+i-2];b=a%4;a>>=2;for(j=r;j--;)[a,b]=[b,2-!t+(t>5)-a];a+=x;b+=y}e||h&&(x=4,y=20,t=q%7,B=C);B=B.filter(_=>_-1023?_:++S-S);z=S;for(i=209;i;)Z.innerText=z+=i--%11?C[i/11|0]>>i%11&1?'O ':'. ':`
+`},200);</script>
