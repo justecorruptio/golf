@@ -9,7 +9,7 @@ q=0;
 
 gameover = () => {
     alert('final score: ' + score);
-    board=[];
+    B=[];score=0;
     reset();
 }
 display = () => {
@@ -18,25 +18,24 @@ display = () => {
     d=[];
     for(i = 19; i >=0 ; i--) {
         for(j = 0; j < W; j++) {
-            v = c[i] >> j & 1;
+            v = C[i] >> j & 1;
             z+=v ? 'O ' : '- ';
         }
         z += '\n';
-        if(board[i]==1023) { score++;}
-        else { d.unshift(board[i]);}
+        if(B[i]==1023) { score++;}
+        else { d.unshift(B[i]);}
     }
     Z.innerText = z
-    board=d;
-    if(board[19])gameover();
+    B=d;
+    if(B[19])gameover();
 };
 
 get_coord = () => {
-    T = [[0,1,2,3],[0,1,2,10],[0,1,2,11],[0,1,2,12],[0,1,-10,11],[0,1,-10,-9],[0,1,11,12]];
-    V = T[t];
+    U = '67686960090118';
     ret = [];
     for(i=0; i<4; i++){
-        v = V[i] + W;
-        a = 0|(v/W); b = v % W;
+        v = i<2 ?i+4 : +U[t*2 + i - 2];
+        a = 0|(v/4); b = v % 4;
         f = t == 0 ? 3 : t == 5 ? 1 : 2;
         for(j=0;j<r;j++){
             [a,b]=[b,f-a];
@@ -47,10 +46,10 @@ get_coord = () => {
 };
 
 add_t = () => {
-    c = [...board];
+    C = [...B];
     get_coord().map(
         v=>{
-            c[v[1]] |= 1 << v[0];
+            C[v[1]] |= 1 << v[0];
         }
     );
 };
@@ -61,11 +60,11 @@ check = (s) => {
         [a,b] = D[i];
         if(a<0){undo()}
         if(a>=W){undo()}
-        if(b<0){undo();add_t();board=c;reset();break}
-        if(board[b] >> a & 1){
+        if(b<0){undo();add_t();B=C;reset();break}
+        if(B[b] >> a & 1){
             undo();
             if(s){
-                add_t();board=c;reset();
+                add_t();B=C;reset();
             }
             break
         }
@@ -87,7 +86,7 @@ undo = () => {
 
 reset();
 
-board = [];
+B = [];
 
 setInterval(_=>{
     u = [x,y,r];
