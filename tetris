@@ -1,35 +1,29 @@
 <pre id=Z><script>
-S=q=0;B=[];
+R=_=>{y=20,x=4,r=0,t=q%7};R(B=[S=q=0]);
 
 A=s=>{
 C=[...B];
 for(i=4;i--;){
 v=i<2?i+4:'67686960091801'[t*2+i-2];
-a = v/4; b = v % 4;
-for(j=r;j--;)[a,b]=[b,3+!t-(t>5)+~a]
+a=v/4;b=v%4;
+for(j=r;j--;q++)[a,b]=[b,3+!t-(t>5)+~a]
 
 a+=x;b+=y;
-s?a<0||a>=10?[x,y,r]=u:b<0||B[b]>>a&1?([x,y,r]=u,h=1):0:C[b]|=1<<a
+s?a<0||a>=10?[x,y,r]=u:b<0||B[b]>>a&1?h=[x,y,r]=u:0:C[b]|=1<<a
 }
 };
 
-R=_=>{y=20,x=4,r=0,t=q%7};R();
 
 setInterval(onkeyup=e=>{
-q++;
 u=[x,y,r];
 e?(g=e.which-38)?g-2?x-=g:y--:r++:y--;
 h=0;
 A(A(1));
-if(h&&!e)R(B=C);
+e||h&&R(B=C);
 
 B=B.filter(_=>_-1023?_:++S-S)
-z=S;
-for(i=19;i--;) {
-z+=`
-`;
-for(j=10;j--;)Z.innerText=z+=C[i]>>j&1?'O ':'. ';
-}
-}, 200);
+for(z=S,i=19;i--;)for(z+=`
+`,j=10;j--;)Z.innerText=z+=C[i]>>j&1?'O ':'. ';
+},200);
 
 </script>
