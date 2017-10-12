@@ -9,15 +9,15 @@ display = (board) => {
     z = '';
     for(i = 19; i >=0 ; i--) {
         for(j = 0; j < W; j++) {
-            z+=board[i * W + j] ? 'O ' : '- ';
+            v = board[i * W + j];
+            z+=v ? 'O ' : '- ';
         }
         z += '\n';
     }
     Z.innerText = z
 };
 
-rotate = (v, t) => {
-    f = t == 0 ? 3 : t == 5 ? 1 : 2;
+rotate = (f, a, b) => {
     a = 0|(v/W); b = v % W;
     return b * W + f - a;
 };
@@ -28,10 +28,12 @@ get_coord = (t, r) => {
     ret = [];
     for(i=0; i<4; i++){
         v = V[i] + W;
+        a = 0|(v/W); b = v % W;
+        f = t == 0 ? 3 : t == 5 ? 1 : 2;
         for(j=0;j<r;j++){
-            v = rotate(v, t);
+            [a,b]=[b,f-a];
         }
-        ret[i] = v;
+        ret[i] = [a + x,b + y];
     }
     return ret;
 };
@@ -40,38 +42,58 @@ add_t = (board, t, r) => {
     c = [...board];
     get_coord(t, r).map(
         v=>{
-            c[v + y * W + x] = 1
+            c[v[1] * W + v[0]] = 1
         }
     );
     return c;
 };
 
-check = () => {
+check = (s) => {
     r = rot % 4 + 4;
     t = 6;
     D = get_coord(t, r);
     for(i = 0; i < 4;i++){
-        d = D[i];
+        [a,b] = D[i];
+        if(a<0){undo()}
+        if(a>=W){undo()}
+        if(b<0){undo();add_t(board, t, r);board=c;reset();break}
+        if(board[b * W + a]){
+            undo();
+            if(s){
+                add_t(board, t, r);board=c;reset();
+            }
+            break
+        }
     }
-    display(add_t(board, t, r));
+    display(add_t(board, t, rot % 4 + 4));
 };
 
-y = 19;
-x = 6;
-rot = 0;
+reset = () => {
+    y = 21;
+    x = 4;
+    rot = 0;
+};
+
+undo = () => {
+    [x,y,rot] = u;
+};
+
+reset();
 
 board = [];
 
 setInterval(_=>{
+    u = [x,y,rot];
     y -= 1;
-    check();
-}, 700);
+    check(1);
+}, 500);
 
 onkeyup = e => {
+    u = [x,y,rot];
     g = e.which;
     g == 38 ? (rot += 1) :
     g == 40 ? (y -= 1) :
     x += g - 38;
-    check();
+    check(0);
 }
 </script>
