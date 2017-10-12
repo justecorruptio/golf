@@ -1,23 +1,13 @@
 <pre id=Z><script>
-q=0;
+S=q=0;B=[];
 
-S = 0;
-B = [];
-
-display = () => {
-};
-
-U = '67686960090118';
-
-check = (s) => {
+A=s=>{
     C = [...B];
     for(i = 0; i < 4;i++){
-        v = i<2 ?i+4 : +U[t*2 + i - 2];
-        a = 0|(v/4); b = v % 4;
-        f = t == 0 ? 3 : t == 5 ? 1 : 2;
-        for(j=0;j<r;j++){
-            [a,b]=[b,f-a];
-        }
+        v = i<2 ?i+4 : '67686960091801'[t*2 + i - 2];
+        a = ~~(v/4); b = v % 4;
+        for(j=0;j<r;j++)[a,b]=[b,2+!t-(t>5)-a]
+
         a+=x;b+=y;
         if(s){
             if(a<0||a>=10)[x,y,r] = u;
@@ -47,15 +37,15 @@ setInterval(onkeyup = e =>{
     g == 2 || !e ? (y -= 1) :
     x -= g;
     h=0;
-    check(1);
-    check(0);
+    A(1);
+    A(0);
     if(h&&!e){B=C;reset()};
 
     B=B.filter(_=>_-1023?_:++S-S)
     z = S;
     for(i = 19; i-- ;) {
         z += '\n';
-        for(j = 10; j--;) z+=C[i] >> j & 1 ? 'O ' : '- ';
+        for(j = 10; j--;) z+=C[i] >> j & 1 ? 'O ' : '. ';
     }
     Z.innerText = z;
 }, 200);
