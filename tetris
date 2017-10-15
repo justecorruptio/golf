@@ -1,11 +1,11 @@
-<pre id=Z><script>
+<tt id=Z><script>
 B=[y=x=t=r=S=0];
 
 setInterval(onkeyup=e=>{
-h=u=[x,y,r];
+u=[x,y,r];
 e?(g=e.which-38)?g-2?x-=g:y++:r++:y++;
 C=[...B];
-for(i=8;i--;i>3?a<0|a>9|b<0|B[b]>>a&1?[x,y,r,h]=u:0:C[b]|=1<<a){
+for(h=i=8;i--;i>3?a<0|a>9|b<0|B[b]>>a&1?[x,y,r,h]=u:0:C[b]|=1<<a){
 
 a='456768696009181'[i%4+(i&2)*t];
 b=a&3;a>>=2;
