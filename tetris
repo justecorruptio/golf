@@ -2,7 +2,7 @@
 B=[y=x=t=r=S=0];
 setInterval(onkeyup=e=>{
 u=[x,y,r+4];
-e?(g=e.which-38)?g-2?x-=g:y++:r++:y++;
+e&&(g=e.which-38)-2?g?x-=g:r++:y++;
 C=[...B];
 for(h=i=8;i--;a+=x+3,b+=20-y,
 i>3?a<0|a>9|B[b]>>a&1|b<0?[x,y,r,h]=u:0:C[b]|=1<<a)
