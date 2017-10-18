@@ -1,0 +1,10 @@
+<!--
+with(new AudioContext)with(o=createOscillator())connect(destination),start(setInterval("o.frequency.value=`RR>AIIA>777${d='ARRIA>>>AIIRRAA7777\0\0'}IIIWnnbWRRR${d}`.charCodeAt(++t&63)*4",t=192))
+with(new AudioContext)with(o=createOscillator())connect(destination),start(setInterval("o.frequency.value=`R>AIA>77${d='ARIA>>AIRRA777\0\0'}IIWnbWRR${d}`.charCodeAt(++t%64/4*3|0)*4",t=192))
+with(new AudioContext)with(o=createOscillator())connect(destination),start(setInterval("o.frequency.value=`R>AIA>77${d='ARIA>>AIRRA777\0\0'}IIWnbWRR${d}`.charCodeAt(++t%64*.75)*4",t=192))
+with(new AudioContext)with(createOscillator())connect(destination),start(setInterval(V=>frequency.value=`R>AIA>77${d='ARIA>>AIRRA777\0\0'}IIWnbWRR${d}`.charCodeAt(++t%64*.75)*8,t=192))
+-->
+
+<script>
+with(new AudioContext)with(createOscillator())connect(destination),start(setInterval(V=>frequency.value=`R>AIA>77${d='ARIA>>AIRRA777\0\0'}IIWnbWRR${d}`.charCodeAt(++t%64*.75)*8,t=192))
+</script>
