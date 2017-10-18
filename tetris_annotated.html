@@ -9,7 +9,7 @@
         r: rotation of current piece
         S: score, rows cleared
         e: keyup event object, or undefined if piece is just falling
-        u: variable to save current piece position
+        u: variable to save current piece position and rotation
         C: board updated with current piece
         h: flag for if the piece is still moving
         a, b, f: temp variables for calculating rotations
@@ -31,25 +31,25 @@ setInterval(onkeyup=e=>{
 */
 u=[x,y,r+4];
 
-e? // If the was triggered by a keypress
-    (g=e.which-38)? // If key is not up
-        g-2? // If key is not down
-            x-=g // Key is left or right, adjust x position
+e? // If this function was triggered by a key press
+    (g=e.which-38)? // If key is not up arrow
+        g-2? // If key is not down arrow
+            x-=g // Key is left or right arrow, adjust x position
         :
-            y++ // Key is down, drop the piece by one
+            y++ // Key is down arrow, drop the piece by one
     :
-        r++ // Key is up, increment rotation
+        r++ // Key is up arrow, increment rotation
 :
     y++; // No key was pressed, just drop the piece by one
 
-// Duplicate the board into C
+// Duplicate the main board into temporary board C
 C=[...B];
 
 /*
     Loop over the positions of a piece twice. There are 4 blocks
     in a piece, so we use 8 to merge the two loops. The first time,
     check if the piece is out of bounds or collides with the
-    settled blocks, the second time, write the piece onto C.
+    settled blocks. The second time, write the piece onto C.
     We are also setting the h flag to truthy, to denote that
     the piece is still moving.
 */
@@ -65,38 +65,38 @@ a+=x+3,b+=20-y,
 
 i>3? // If t's the first time iterating over the piece
     a<0|a>9|b<0 // If the block is out of bounds
-    |B[b]>>a&1? // or of the block is already occupied
+    |B[b]>>a&1? // or if the block is already occupied
         [x,y,r,h]=u // Reset (x, y) and rotation to state saved earlier.
                     // Also, set h to be falsy to denote that the piece
                     // is no longer moving
     :
         0 // Else, no-op
 : // Else, it's the second time looping
-    C[b]|=1<<a // Add the block to C.
+    C[b]|=1<<a // Add the block to temporary board C.
 
 // Close the for loop tail clause
 )
 
-// Loop for rotating teh current piece.
+// Loop for rotating the current piece.
 for(
 
 /*
-    Tetromino pieces are stored as by positions of their constituent
+    Tetromino pieces are stored as positions of their constituent
     blocks. Positions are laid out like this:
         0 1 2 3
         4 5 6 7
         8 9
     So, [4, 5, 6, 9] defines a T piece.
 
-    A major space saving the realizing that all pieces contain
+    A major space savings is the realization that all pieces contain
     positions 4 and 5 so only two positions are needed to define a
     piece.
 */
 
-// select a block position by t-th piece and i-th block
+// Select a block position by t-th piece and i-th block.
 a='456768696009181'[i%4+(i&2)*t],
 
-// (a, b) now contain the coordinate value of a block position
+// (a, b) now contains the coordinate value of a block position
 b=a&3,a>>=2,
 
 // For loop head and test clauses, loop over the number of rotations
@@ -111,15 +111,15 @@ a=f)f=b,
 
 /*
     The axis of rotation varies depending on the piece. Here, we
-    use SRS from the Tetris Guideline. t=0 is the I piece and must
-    be and has an axis around 2; t=6 is the O piece has axis
-    around 1; all else has axis around 1.5.
+    use SRS from the Tetris Guideline. t=0 is the I piece and has
+    an axis around 2; t=6 is the O piece has an axis around 1; all
+    others have and axis around 1.5.
 */
 b=2+!t-(t>5)-a;
 
 /*
     Update the main board B if the piece is not moving and that
-    this was triggered not by a key event (ie. falling). This
+    this was not triggered by a key event (ie. falling). This
     prevents us from sticking a piece to the side of the wall.
 */
 B=h||e? // If not qualified to settle the current piece
@@ -135,21 +135,21 @@ B=h||e? // If not qualified to settle the current piece
             x=y=1 // Return a truthy value to denote that filter()
                   // needs to copy this row. We also reset the
                   // position of (x, y) here; 1 is truthy but and
-                  // is near to the top-center of the board enough.
+                  // is close enough to the top-center of the board.
         : // Else, the row is full
-            ++S-S // increment the score, but substract from itself
+            ++S-S // Increment the score, but substract from itself
                   // so that 0 is passed back to filter(), thus the
-                  // row is not copied
+                  // row is not copied.
 
         /*
             Choose a new piece based on the number of rotations.
             Since 4 is added to the rotation every time the saved
-            value is restored, a seemingly random piece is chosen.
+            value is restored; a seemingly random piece is chosen.
         */
         ,t=r%7
     );
 
-// Loop to render the board, Add the score to the output
+// Loop to render the board, add the score to the output.
 for(z=S,i=209;i;)
 
 // Draw the correct character selected by row and value in the
