@@ -1,15 +1,15 @@
 <body onload="
 B=[y=x=t=r=S=0];
 setInterval(onkeyup=e=>{
-h=u=[x,y,r+4];
+u=[x,y,r+4];
 e&&(g=e.which-38)-2?g?x-=g:r++:y++;
 C=[...B];
 for(i=8;i--;a+=x+3,b+=20-y,
-a<0|a>9|B[b]>>a&1|b<0?[x,y,r,h]=u:C[b]|=(i<4)<<a)
+a<0|a>9|B[b]>>a&1|b<0?[x,y,r,u]=u:C[b]|=(i<4)<<a)
 for(a='457690681'[i%4+(i&2&&t)],
 b=a&3,a>>=2,j=r;j--;a=f)f=b,b=2+!t-(t>5)-a;
 
-B=h||e?B:C.filter(_=>_-1023?x=y=1:++S-S,t=r%7);
+B=u||e?B:C.filter(_=>_-1023?x=y=1:++S-S,t=r%7);
 
 for(z=S,i=T;i;)Z.innerText=z+=`_#
 `[i--%11?C[i/11|0]>>i%11&1:2]+'| '
