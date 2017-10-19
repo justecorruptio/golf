@@ -1,10 +1,9 @@
 <body onload="
 B=[y=x=t=r=S=0];
 setInterval(onkeyup=e=>{
-u=[x,y,r+4];
+u=[x,y,i=r+8];
 e&&(g=e.which-38)-2?g?x-=g:r++:y++;
-C=[...B];
-for(i=8;i--;a+=x+3,b+=20-y,
+for(C=[...B];i--;a+=x+3,b+=20-y,
 a<0|a>9|B[b]>>a&1|b<0?[x,y,r,u]=u:C[b]|=(i<4)<<a)
 for(a='457690681'[i%4+(i&2&&t)],
 b=a&3,a>>=2,j=r;j--;a=f)f=b,b=2+!t-(t>5)-a;
