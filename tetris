@@ -8,7 +8,7 @@ a<0|a>9|B[b+=20-y]>>a&1|b<0?[x,y,r,u]=u:C[b]|=(i<4)<<a)
 for(a='457690681'[i%4+(i&2&&t)],
 b=a&3,a>>=2,j=r;j--;a=f)f=b,b=3-t/5-a|0;
 
-B=u||e?B:C.filter(_=>_-1023?x=y=1:++S-S,t=r%7);
+B=u||e?B:C.filter(_=>_-1023?x=y=1:!++S,t=r%7);
 
 for(z=S,i=T;i;)Z.innerText=z+=`_#
 `[i--%11?C[i/11|0]>>i%11&1:2]+'| '
