@@ -1,0 +1,16 @@
+<canvas id=c><script>
+o=[[],[]];
+s=0;
+setInterval(`
+for(c.width=i=32;i<960;i++){
+(o[~s&1][i] = s?
+3==(_-33]_-32]_-31]_-1]_+1]_+31]_+32]_+33]|_])
+:
+i%9&1)
+
+?c.getContext("2d").fillRect(i/32|0,i%32,1,1):0;
+
+}
+s++;
+`.replace(/_/g,"+o[s&1][i"),80)
+</script>
