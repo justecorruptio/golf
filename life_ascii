@@ -1,0 +1,6 @@
+<!--
+<body onload=setInterval("for(h=a=[i=4e3];i--;c.innerHTML=h+=`▁▉-`[i%80?a[i]=3==(n-1|b[i])|i%9&!b:2])for(zof[n=1,79,80,81])n+=b[i+z]+b[i-z];b=a",b=0) id=c>
+<body onload='B=z=>b[i+z]+b[i-z];setInterval("for(h=a=[i=4e3];i--;)c.innerHTML=h+=`▁▉-`[i%80?a[i]=3==(B(1)+B(79)+B(80)+B(81)|b[i])|i%9&!b:2];b=a",b=0)'id=c>
+-->
+
+<body onload='setInterval("for(h=a=[i=4e3];i--;)c.innerHTML=h+=`▁▉-`[i%80?a[i]=3==((B=z=>b[i+z]+b[i-z])(1)+B(79)+B(80)+B(81)|b[i])|i%7&!b:2];b=a",b=0)'id=c>
