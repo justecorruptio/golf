@@ -1,7 +1,7 @@
 <body onload="
 /*
-    Use body's onload attribute to trigger execution. This
-    shorter than using <script> tags.
+    Use body's onload attribute to trigger script execution.
+    This shorter than using <script> tags.
 
     Variables
     ---------
@@ -11,7 +11,7 @@
     t: integer between [0, 7], current tetris piece number
     r: rotation of the current piece
     S: score, rows cleared
-    e: keyup evnt object, or undefined if piece is just falling
+    e: keyup event object, or undefined if piece is just falling
     u: variable to save current piece position and rotation
     C: board updated with current piece
     a, b, f: temporary variables used to calculate rotations
@@ -21,13 +21,12 @@
     T: Constant = 210
 */
 
-
 // Initialize the position of the first falling piece.
 x=y=4;
 
 /*
     Initialize the board to be [-1, 0]. The -1 is important
-    for collusion detection later.
+    for collision detection later.
 */
 B=[
 
@@ -72,21 +71,20 @@ C=[...B];
     to the temporary board C, and renders the board.
 
     The loop counter i was set earlier to at least 214, and
-    decrements to zero. Of which, iterations above 210 is used to
-    check for piece collisions.
+    decrements to zero. Iterations above 210 is used to check
+    for piece collisions.
 
     z is set to the score. This is used for rendering the score
     later.
 */
 for(z=S;--i;
 
-
 /*
     This begins the tail clause of the outer for-loop, and will
     execute after the inner loop completes.
 
-    Here, the b contains the y position of the current block of
-    the falling piece. Adjust b because B[0] is the bottom of the
+    Here, b contains the y position of the current block of the
+    falling piece. Adjust b because B[0] is the bottom of the
     board and B[24] is the top.
 
     B[b] fetches the row that contains the current block of the
@@ -103,7 +101,7 @@ for(z=S;--i;
     whole.
 
     The bitwise and (&) is then used to select a bit out of the
-    current row association with the current block. If this bit
+    current row associated with the current block. If this bit
     is set, then the current block is already occupied, and a
     collision is detected.
 
@@ -155,7 +153,7 @@ for(
     contain positions 4 and 5 so only the third and fourth positions
     are needed to define a piece. Secondly, the fourth positon of a
     piece reused as the third position of the subsequent piece, so
-    onyl one byte is needed to define a piece. Lastly, the fourth
+    only one byte is needed to define a piece. Lastly, the fourth
     position of the last block is 0, so we encode that as an implicit
     undefined in the string below.
 */
@@ -200,7 +198,7 @@ B=u||e? // If collision has not been detected or a key was pressed,
         _-2046? // If the row is not full
             x=y=4 // Return a truthy value to denote that filter()
                   // needs to copy this row. We also reset the
-                  // position of (x, y) here;
+                  // position of (x, y) here.
         : // Else, the row is full.
             !++S // Increment the score. A logical not (!) is used
                  // to signal filter() that the row should be discarded.
