@@ -1,83 +1,146 @@
-<tt id=Z><script>
+<body onload="
 /*
-    <tt> is teletype tag which displays fixed width text
-    Variables:
-        B: tetris board, each item is a row as a bitfield,
-            B[0] is the bottom of the board
-        x, y: (x,y) position of the current piece
-        t: current tetris piece
-        r: rotation of current piece
-        S: score, rows cleared
-        e: keyup event object, or undefined if piece is just falling
-        u: variable to save current piece position and rotation
-        C: board updated with current piece
-        h: flag for if the piece is still moving
-        a, b, f: temp variables for calculating rotations
-        i, j: variables for iteration counters
-        Z: tt DOM object
-        z: holds intermediate value for rendered board
+    Use body's onload attribute to trigger execution. This
+    shorter than using <script> tags.
+
+    Variables
+    ---------
+    B: tetris board, each item is a row as a bitfield,
+        B[0] is the bottom of the board
+    x, y: position of current falling piece
+    t: integer between [0, 7], current tetris piece number
+    r: rotation of the current piece
+    S: score, rows cleared
+    e: keyup evnt object, or undefined if piece is just falling
+    u: variable to save current piece position and rotation
+    C: board updated with current piece
+    a, b, f: temporary variables used to calculate rotations
+    i, j: variables for iteration counters
+    Z: <body> DOM object
+    z: holds the intermediate value for rendered board
+    T: Constant = 210
 */
 
-// Initialize the board, falsely values are empty rows.
-B=[y=x=t=r=S=0];
 
-// Trigger the main code on an interval or when a key is pressed.
-setInterval(onkeyup=e=>{
+// Initialize the position of the first falling piece.
+x=y=4;
+
+/*
+    Initialize the board to be [-1, 0]. The -1 is important
+    for collusion detection later.
+*/
+B=[
+
+/*
+    Trigger the main code on an interval or when a key is
+    pressed. setInterval() returns a non-zero integer, the logical
+    not operator (!) converts this to false, then the bitwise
+    inverse (~) of false, in two's complement, is -1.
+*/
+~!setInterval(onkeyup=e=>{
 
 /*
     Save the position and rotation of the current piece.
-    Adding 4 to the rotation doesn't affect the orientation of the
-    piece. We will be abusing this value for choosing the next piece.
-*/
-u=[x,y,r+4];
+    Adding 4 to the rotation doesn't affect the orientation of
+    the piece. We will be abusing this value for choosing the
+    next falling piece.
 
-e? // If this function was triggered by a key press
-    (g=e.which-38)? // If key is not up arrow
-        g-2? // If key is not down arrow
-            x-=g // Key is left or right arrow, adjust x position
-        :
-            y++ // Key is down arrow, drop the piece by one
-    :
-        r++ // Key is up arrow, increment rotation
-:
-    y++; // No key was pressed, just drop the piece by one
+    We also set the loop variable i here. r is initially set to
+    210 and is non-decreasing, therefore i is at least 214.
+*/
+u=[x,y,i=r+4];
+
+/*
+    e is only defined if this function was triggered by a
+    keypress. If so, set g to be equal to the pressed keycode
+    less 38.
+*/
+e&&(g=e.which-38)-2? // If key was pressed and key is not down arrow,
+    g? // If key is left or right arrow,
+        x-=g // move the x position of the falling piece
+    : // Else, key is up arrow,
+        r++ // Increase the falling piece's rotation.
+: // Else key was not press or key is down arrow
+    y++; // Drop the piece by one.
 
 // Duplicate the main board into temporary board C
 C=[...B];
 
 /*
-    Loop over the positions of a piece twice. There are 4 blocks
-    in a piece, so we use 8 to merge the two loops. The first time,
-    check if the piece is out of bounds or collides with the
-    settled blocks. The second time, write the piece onto C.
-    We are also setting the h flag to truthy, to denote that
-    the piece is still moving.
+    Begin the outer loop of this function. This loop calculates
+    the rotations of the current falling piece, adds the piece
+    to the temporary board C, and renders the board.
+
+    The loop counter i was set earlier to at least 214, and
+    decrements to zero. Of which, iterations above 210 is used to
+    check for piece collisions.
+
+    z is set to the score. This is used for rendering the score
+    later.
 */
-for(h=i=8;i--;
+for(z=S;--i;
+
 
 /*
-    Tail clause of the for loop, by this time, the current piece
-    has been rotated. This moves the piece to the correct location
-    on the board as specified by (x, y) position. Here (a, b) is
-    the position of a block in the current piece.
+    This begins the tail clause of the outer for-loop, and will
+    execute after the inner loop completes.
+
+    Here, the b contains the y position of the current block of
+    the falling piece. Adjust b because B[0] is the bottom of the
+    board and B[24] is the top.
+
+    B[b] fetches the row that contains the current block of the
+    falling piece as an integer bitfield. We then do a bit-wise
+    or (|) with 2049 (100000000001 in binary). The row value is used
+    to check for collisions with previous blocks, and 2049 for
+    collisions at the edge of the board.
 */
-a+=x+3,b+=20-y,
+(B[b+=24-y]|2049)
 
-i>3? // If t's the first time iterating over the piece
-    a<0|a>9|b<0 // If the block is out of bounds
-    |B[b]>>a&1? // or if the block is already occupied
-        [x,y,r,h]=u // Reset (x, y) and rotation to state saved earlier.
-                    // Also, set h to be falsy to denote that the piece
-                    // is no longer moving
-    :
-        0 // Else, no-op
-: // Else, it's the second time looping
-    C[b]|=1<<a // Add the block to temporary board C.
+/*
+    The variable a contains the x position of the current block,
+    and we shift this block by the x position of the piece as a
+    whole.
 
-// Close the for loop tail clause
+    The bitwise and (&) is then used to select a bit out of the
+    current row association with the current block. If this bit
+    is set, then the current block is already occupied, and a
+    collision is detected.
+
+    Remember that B[0] is equal to -1 (...111111111111 in binary)
+    this is used to detect collisions at the bottom of the board.
+*/
+&(k=1<<a+x)? // If a collision is detected
+
+/*
+    Then, the position of the current piece as a whole is invalid
+    and the rotation and movement changes must be undone. These
+    values are restored from u that was previously saved.
+
+    The value of u is also set to undefined to signify that a
+    collision was detected.
+*/
+    [x,y,r,u]=u
+
+: // Else no collision detected
+    i<T?  // If the loop counter is less than 210, also implies
+          // that the loop has already executed at least 4 times.
+        Z.innerText=z+= // Render the the temporary value z
+        `_#
+`[ // Add another character to z
+
+        C[b]|=k, // Before that, add the current block to temporary
+                 // board C with a bit-wise or (|) shifted by k
+                 // set earlier.
+
+        i%11?C[i/11+1|0]>>i%11&1:2]+'| ' // Render one block.
+    : // Else loop counter is above 210 at we're not ready to render
+        0 // No-op
+
+// This ends the tail clause of the the outer for-loop.
 )
 
-// Loop for rotating the current piece.
+// Begin the inner for-loop
 for(
 
 /*
@@ -88,19 +151,26 @@ for(
         8 9
     So, [4, 5, 6, 9] defines a T piece.
 
-    A major space savings is the realization that all pieces contain
-    positions 4 and 5 so only two positions are needed to define a
-    piece.
+    First, A major space savings is the realization that all pieces
+    contain positions 4 and 5 so only the third and fourth positions
+    are needed to define a piece. Secondly, the fourth positon of a
+    piece reused as the third position of the subsequent piece, so
+    onyl one byte is needed to define a piece. Lastly, the fourth
+    position of the last block is 0, so we encode that as an implicit
+    undefined in the string below.
 */
 
-// Select a block position by t-th piece and i-th block.
-a='456768696009181'[i%4+(i&2)*t],
+// Select a block position by the t-th piece and i-th block.
+a='547690681'[i%4+(i&2&&t)],
 
 // (a, b) now contains the coordinate value of a block position
 b=a&3,a>>=2,
 
-// For loop head and test clauses, loop over the number of rotations
-j=r;j--;
+/*
+    Inner for loop head and test clauses, loop over the number of
+    rotations. We limit this to r&3 for performance reasons.
+*/
+j=r&3;j--;
 
 /*
     A rotation is equivalent to a transpose and a flip. Here, we
@@ -115,31 +185,25 @@ a=f)f=b,
     an axis around 2; t=6 is the O piece has an axis around 1; all
     others have and axis around 1.5.
 */
-b=2+!t-(t>5)-a;
+b=3-t/5-a|0;
+
+B=u||e? // If collision has not been detected or a key was pressed,
+    B // Then, the piece is not ready to be settled, no-op.
+: // Else
 
 /*
-    Update the main board B if the piece is not moving and that
-    this was not triggered by a key event (ie. falling). This
-    prevents us from sticking a piece to the side of the wall.
-*/
-B=h||e? // If not qualified to settle the current piece
-    B // no-op
-:
-/*
     During the settling of a piece, we use filter() to detect
-    if a row is full ie. bitmask value 1023. Non-full rows
-    are copied from temp board C back to main board B.
+    if a row is full ie. bitmask value 2046 (11111111110 in binary).
+    Non-full rows are copied from temp board C back to main board B.
 */
     C.filter(_=>
-        _-1023? // If the row is not full
-            x=y=1 // Return a truthy value to denote that filter()
+        _-2046? // If the row is not full
+            x=y=4 // Return a truthy value to denote that filter()
                   // needs to copy this row. We also reset the
-                  // position of (x, y) here; 1 is truthy but and
-                  // is close enough to the top-center of the board.
-        : // Else, the row is full
-            ++S-S // Increment the score, but substract from itself
-                  // so that 0 is passed back to filter(), thus the
-                  // row is not copied.
+                  // position of (x, y) here;
+        : // Else, the row is full.
+            !++S // Increment the score. A logical not (!) is used
+                 // to signal filter() that the row should be discarded.
 
         /*
             Choose a new piece based on the number of rotations.
@@ -147,16 +211,13 @@ B=h||e? // If not qualified to settle the current piece
             value is restored; a seemingly random piece is chosen.
         */
         ,t=r%7
-    );
+    )
 
-// Loop to render the board, add the score to the output.
-for(z=S,i=209;i;)
+// End the main function
+},
 
-// Draw the correct character selected by row and value in the
-// bitmask.
-Z.innerText=z+=' '+`.O
-`[i--%11?C[i/11|0]>>i%11&1:2]
+// End setInterval() call, set the interval to 210 ms.
+r=T=210),
 
-// Trigger a drop every 200 milliseconds
-},200)
-</script>
+// Initialize the first piece and score to zero.
+t=S=0]"id=Z>
