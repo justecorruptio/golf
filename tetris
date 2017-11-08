@@ -1,6 +1,6 @@
 <body onload="
 t=x=y=4;B=[S=~!setInterval(onkeyup=e=>{
-u=[x,y,i=r+4];
+u=[x,y,i=r+4,e];
 e&&(g=e.which-38)-2?g?x-=g:r++:y++;
 C=[...B];
 for(z=~S;--i;
@@ -9,6 +9,6 @@ i<T?Z.innerText=z+=`_#
 `[C[b]|=k,i%11?C[i/11+1|0]>>i%11&1:2]+'| ':0)
 v=c=>(h=37461+c%2*36703>>i%4*2+(i&2)*t&3,c&2?3-t/5-h:h);
 
-B=u||e?B:C.filter(_=>_-2046?x=y=4:!--S,t=r%7)
+B=u?B:C.filter(_=>_-2046?x=y=4:!--S,t=r%7)
 
 },r=T=210)]"id=Z>
