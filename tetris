@@ -4,11 +4,11 @@ C=[~!setInterval(onkeyup=e=>{
 C=[...B=u?B:C.filter(_=>_-2046?x=y=4:!++S,t=r%7)];
 
 u=[x,y,i=r+4,e];
-e&&(g=e.which-38)-2?g?x-=g:r++:y++;
-for(z=S;--i;
+
+for(e&&(g=e.which-38)-2?g?x-=g:r++:y++;--i;
 B[b=~v(r)+26-y]&k|2049&k?[x,y,r,u]=u:
 i<T?Z.innerText=z+=`_#
-`[C[b]|=k,i%11?C[i/11+1|0]>>i%11&1:2]+`| `:0)
+`[C[b]|=k,i%11?C[i/11+1|0]>>i%11&1:2]+`| `:z=S)
 k=1<<v(r+1)+x
 
 },r=T=210),S=u=0]"id=Z>
