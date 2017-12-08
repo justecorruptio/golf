@@ -6,13 +6,13 @@ s=[8];
 d=w=>{
 b.innerHTML='';
 for(i=0;i<48;i++)
-s.includes(i)?z=2:z=+m(i),b.innerHTML+=`<x style='width:22px;height:25px;border:1px solid;float:left;background:#${["000","fff",w?"0f0":"da6"][z]}${i%6?"":";clear:both"}'>`+["","👀"][+(z==2&&i==s[s.length-1])];
+s.includes(i)?z=2:z=m(i),b.innerHTML+=`<x style='width:22px;height:25px;border:1px solid;float:left;background:#${["000","fff",w?"0f0":"da6"][z]}${i%6?"":";clear:both"}'>`+["","👀"][+(z==2&&i==s[0])];
 }
-d(0);
+d();
 onkeyup=e=>(e=e.which)-37>>2||(
-p=s[s.length-1],
-s.includes(p+=-((D=e%4-1)%2)*6+(--D%2))||s.push(p),
-s=s.slice(s.length>[8,13][l]),
-d(s.every(k=>+m(k))&&setTimeout("l++;s=[8];d()",999))
+p=s[0],
+s.includes(p+=-(D=e%4-1)%2*6+--D%2)||s.unshift(p),
+s=s.slice(0,[8,13][l]),
+d(s.every(k=>m(k))&&setTimeout("l++;s=[8];d()",999))
 )
 </script>
