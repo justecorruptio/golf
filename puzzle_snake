@@ -1,15 +1,10 @@
 <body onload='
 m=p=>p<16?0:[1098636,6408094][l]>>41-p&1;
-d=w=>{
-B="";
-for(i=0;i<48;i++)
-b.innerHTML=B+=`<x style=width:21;height:21;border:solid+1px;float:left;background:#${s.includes(i)?w?"0f0":"da6":m(i)?"fff":"000"}${i%6?"":";clear:both"}>${i-s[0]?"":"👀"}</x>`;
+onkeyup=d=e=>{e?s.includes(p=s[0]+[6,-1,-6,1][e.which%4])||s.unshift(p):0;
+s=s.slice(0,[8,13][l]);
+w=s.every(m)&&setTimeout("l++;s=[8];d()",999);
+for(B="",i=0;i<48;i++)
+b.innerHTML=B+=`<x style=width:21;height:21;border:solid+1px;float:left;background:#${s.includes(i)?w?"0f0":"da6":m(i)?"fff":"000"}${i%6?"":";clear:both"}>${i-s[0]?"":"👀"}</x>`
 }
-onkeyup=e=>{s.includes(p=s[0]+[6,-1,-6,1][e.which%4])||s.unshift(p),
-s=s.slice(0,[8,13][l]),
-d(s.every(m)&&setTimeout("l++;s=[8];d()",999))
-}
-l=0;
-s=[8];
-d();
+s=[8];d(l=0)
 'id=b>
