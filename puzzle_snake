@@ -6,12 +6,11 @@ s=[8];
 d=w=>{
 b.innerHTML='';
 for(i=0;i<48;i++)
-b.innerHTML+=`<x style=width:22px;height:25px;border:solid+1px;float:left;background:#${s.includes(i)?w?"0f0":"da6":m(i)?"fff":"000"}${i%6?"":";clear:both"}>`+(i-s[0]?'':'👀');
+b.innerHTML+=`<x style=width:21;height:21;border:solid+1px;float:left;background:#${s.includes(i)?w?"0f0":"da6":m(i)?"fff":"000"}${i%6?"":";clear:both"}>`
++(i-s[0]?'':'👀');
 }
 d();
-onkeyup=e=>(e=e.which)-37>>2||(
-p=s[0],
-s.includes(p+=-(D=e%4-1)%2*6+--D%2)||s.unshift(p),
+onkeyup=e=>(s.includes(p=s[0]+[6,-1,-6,1][e.which%4])||s.unshift(p),
 s=s.slice(0,[8,13][l]),
 d(s.every(m)&&setTimeout("l++;s=[8];d()",999))
 )
