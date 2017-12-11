@@ -1,10 +1,6 @@
-<body onload='
-m=p=>p<16?0:[1098636,6408094][l]>>41-p&1;
-onkeyup=d=e=>{e?s.includes(p=s[0]+[6,-1,-6,1][e.which%4])||s.unshift(p):0;
-s=s.slice(0,[8,13][l]);
-w=s.every(m)&&setTimeout("l++;s=[8];d()",999);
-for(B="",i=0;i<48;i++)
-b.innerHTML=B+=`<x style=width:21;height:21;border:solid+1px;float:left;background:#${s.includes(i)?w?"0f0":"da6":m(i)?"fff":"000"}${i%6?"":";clear:both"}>${i-s[0]?"":"👀"}</x>`
-}
-s=[8];d(l=0)
-'id=b>
+<body onload='m=p=>(n=p%16)>5&n<10&[..."ٯӟ൳ͷϼ໴𦙷࿟⛿ཿ濸ｳ񵝗𷝳𮻼𷝗𿹦򌻷򏿨򿦟񯽗𷿮񿧳\0"][l].codePointAt()>>(p/4&~3)+n-18&1
+onkeydown=d=e=>{k=e.which%36;s=k<5?s.includes(q=p+[,-1,-16,1,16][k])?s:[p=q,...s]:[p=65,64]
+s.length=l<6?8:l<12?11:l<21?13:15
+w=s.every(m)&&setTimeout("d(++l)",999)
+for(B=i="";i<160;)b.innerHTML=B+=`<dt style=width:3ch;height:3ch;float:left;background:#${s.includes(i)?w?792:"da6":!m(i)*359}>${i++-p?"":"👀"}`}
+d(l=0)'style=width:48ch id=b>
