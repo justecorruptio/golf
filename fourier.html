@@ -1,21 +1,17 @@
 <canvas id=c style=width:95%><script>
-D=x=>{r=[];for(j=S;j--;)for(k=S;k--;)r[j]=~~r[j]+x[k]*Math.cos(6.283*j*k/S);return r}
-I=new Image();
+D=g=>g.map((h,j)=>g.reduce((t,v,k)=>t+v*Math.cos(6.283*j*k/S),0))
+I=new Image()
 I.onload=_=>{
-S=c.height=I.naturalWidth;
-c.width=S+S;
-x=c.getContext`2d`;
-x.drawImage(I,0,0);
-e=x.getImageData(0,0,S,S);
-d=e.data;
-f=[];
-m=0;
-for(i=S;i--;)for(f[i]=[],j=S;j--;)f[i][j]=d[(i*S+j)*4];
-f=f.map(D);
-f=f.map((_,c)=>f.map(r=>r[c]));
-f=f.map(D);
-f=f.map(g=>g.map(h=>(h=(h**2)**.15,m<h?m=h:0,h)));
-f.map((g,i)=>g.map((h,j)=>x.fillRect(i+S,j,1,1-h/m)));
-}
-I.src='images/circle.png';
-</script>
+S=c.height=I.width
+c.width=S+S
+x=c.getContext`2d`
+x.drawImage(I,0,0)
+e=x.getImageData(0,0,S,S)
+d=e.data
+m=0
+A=[...Array(S)]
+f=A.map((g,i)=>A.map((h,j)=>d[(i*S+j)*4])).map(D)
+A.map((_,c)=>f.map(r=>r[c])).map(D)
+.map(g=>g.map(h=>(h=(h**2)**.15,m<h?m=h:0,h)))
+.map((g,i)=>g.map((h,j)=>x.fillRect(i+S,j,1,1-h/m)))}
+I.src='images/circle.png'</script>
