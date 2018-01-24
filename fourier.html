@@ -5,8 +5,8 @@ c.width=S+S
 x=c.getContext("2d")
 x.arc(S/2,S/2,12,0,8);x.fill()
 A=[...Array(S).keys()]
-e=x.getImageData(m=0,0,S,S)
+e=x.getImageData(0,0,S,S)
 f=A#i=>A#j=>e.data[(i*S+j)*4+3]))#D)
-A#i=>f#g=>g[i]))#D)#g=>g#h=>m<(h=(h*h)**.1)?m=h:h))
+A#i=>f#g=>g[i]))#D)#g=>g#h=>m=(h*h)**.1))
 #(g,i)=>g#(h,j)=>x.fillRect(i+S,j,1,h/m)))`
 .replace(/#/g,'.map('))</script>
