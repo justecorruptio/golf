@@ -1,49 +1,27 @@
-<img src=images/circle.png width=0 height=0 id=img>
-<table>
-<td>
-Original image
-<br>
-<canvas id="canvas0" style=width:45vw></canvas>
-<td>
-Fourier
-<br>
-<canvas id="canvas1" style=width:45vw></canvas>
-</table>
+<table><td>Original<br><canvas id=c style=width:45vw></canvas>
+<td>Fourier<br><canvas id=d style=width:45vw></canvas></table>
 <script>
-
-function dct(x) {
-    Y = [];
-    for(var i = 0; i < S; i++) {
-        Y[i] = 0;
-        for(var j = 0; j < S; j++) {
-            Y[i] += x[j] * Math.cos(2 * Math.PI * i * j / S);
-        }
-    }
-    return Y;
+dct=x=>{
+r=[];
+for(j=S;j--;)for(k=S;k--;)r[j]=~~r[j]+x[k]*Math.cos(2*Math.PI*j*k/S);
+return r;
 }
 
-img.onload = () => {
-  S = canvas0.width = canvas0.height = canvas1.width = canvas1.height = img.naturalWidth;
-  x0 = canvas0.getContext("2d");
-  x1 = canvas1.getContext("2d");
-  x0.drawImage(img, 0, 0);
-  e = x0.getImageData(0, 0, S, S);
-  d = e.data;
-  f = [];
-  g = [];
-  max = 0;
-  for(I = 0; I < S; I++){
-    r = [];
-    for(J = 0; J < S; J++){
-      r[J] = d[(I*S+J)*4];
-    }
-    f[I] = dct(r);
-  }
-  f=f[0].map((_,c)=>f.map(r=>r[c]));
-
-  for(i=S;i--;)g[i] = dct(f[i]);
-  for(i=S;i--;)for(j=S;j--;)g[i][j]=(g[i][j]**2)**.15,max=Math.max(max,g[i][j]);
-  //for(i=S;i--;)for(j=S;j--;)d[p=(i*S+j)*4]=d[p+1]=d[p+2]=g[i][j]*255/max;x1.putImageData(e, 0, 0);
-  for(i=S;i--;)for(j=S;j--;)x1.fillRect(i,j,1,1-g[i][j]/max);
+I=new Image();
+I.onload=_=>{
+S=c.width=c.height=d.width=d.height=I.naturalWidth;
+x=c.getContext`2d`;
+y=d.getContext`2d`;
+x.drawImage(I,0,0);
+e=x.getImageData(0,0,S,S);
+d=e.data;
+f=[];
+m=0;
+for(i=S;i--;f[i]=dct(r))for(r=[],j=S;j--;)r[j]=d[(i*S+j)*4];
+f=f[0].map((_,c)=>f.map(r=>r[c]));
+for(i=S;i--;)f[i]=dct(f[i]);
+for(i=S;i--;)for(j=S;j--;)p=f[i][j]=(f[i][j]**2)**.15,m=Math.max(m,p);
+for(i=S;i--;)for(j=S;j--;)y.fillRect(i,j,1,1-f[i][j]/m);
 }
+I.src='images/circle.png';
 </script>
