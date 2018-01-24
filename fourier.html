@@ -1,7 +1,6 @@
 <canvas id=c style=width:95%><script>
-eval(`D=g=>[...B=A.slice(0,S/2)#j=>g.reduce((t,v,k)=>t+v*Math.cos(6.283*j*k/S),0)),...B.reverse()]
-S=c.height=256
-c.width=S+S
+eval(`D=g=>A#j=>j<S/2?r[j]=g.reduce((t,v,k)=>t+v*Math.cos(6.283*j*k/S),0):r.pop())
+r=[];S=c.height=256;c.width=S+S
 x=c.getContext("2d")
 x.arc(S/2,S/2,12,0,8);x.fill()
 A=[...Array(S).keys()]
