@@ -1,0 +1,137 @@
+<html>
+<head>
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css">
+
+<style>
+    body {
+        background-color: #222222;
+        font-size: 1.4em;
+    }
+    .main {
+        display: flex;
+        width: 100vw;
+        height: calc(100vh - 1.25em);
+        align-items: flex-start;
+    }
+    .pane {
+        height: 100%;
+        margin: .25em .25em 0em .25em;
+    }
+    .snippet_title {
+        width: 100%;
+        margin-bottom: .25em;
+        background-color: #888;
+        border: #888 solid .1em;
+        box-sizing: border-box;
+    }
+    .hljs {
+        background-color: #def;
+    }
+    iframe {
+        height: 100%;
+        width: 100%;
+        border: 0;
+    }
+    .snippet_preview {
+        background-color: #fee;
+    }
+</style>
+</head>
+<body>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+<div class="main" style="width: 100%">
+
+<div class="pane snippet_list" style="width: 20%">
+</div>
+
+<div class="pane snippet_code" style="width: 50%">
+<pre style="margin:0em">
+<code class="html">function hello(world) {
+    // this is a comment
+    return new Array(10);
+}
+</code>
+</pre>
+</div>
+
+<div class="pane snippet_preview" style="width: 30%">
+<iframe></iframe>
+</div>
+
+</div>
+
+<script>
+heredoc = () => {/*
+=====Welcome
+<body onload="
+v=c=>(h=37461+c%2*36703>>i%4*2+(i&2)*t&3,c&2?3-t/5-h:h);
+C=[S=u=0];
+setInterval(onkeyup=e=>{
+C=[...B=u?B:C.filter(_=>_-2046?x=y=4:!++S,t=r%7)];
+u=[x,y,i=r+4,e];
+
+for(e&&(g=e.which-38)-2?g?x-=g:r++:y++;--i;
+~B[b=~v(r)+26-y]-2049&k&&~b?
+i<T?Z.innerText=z+=`_#
+`[C[b]|=k,i%11?C[i/11|0]>>i%11&1:2]+`| `:z=S
+:[x,y,r,u]=u
+)k=1<<v(r+1)+x
+},r=T=210)"id=Z>
+=====FRIST
+<b>HELLO</B>
+=====second
+<body onload="console.log(3)">
+=====Title
+this is another snippet `with` 'cool' "quotes".
+
+=====By Gorge Pongo!
+and another
+but multiline
+*/}
+
+var page = 0;
+
+function loadSnippet(i) {
+    var {title, code} = snippets[i];
+    var doc = window.frames[0].document;
+    doc.open();
+    doc.write(code);
+    doc.close();
+    $('.snippet_code code').text(code);
+    $('.snippet_code code').each(function(i, code) {hljs.highlightBlock(code);});
+    page = i;
+}
+
+var snippets = '' + heredoc;
+snippets = snippets.replace(/^\(\) => {\/\*|\*\/}$/g, '');
+snippets = snippets.split('=====');
+
+snippets = snippets.map(snippet => {
+    var match = snippet.match(/(\S.*)?\n((?:.|\n)*\S)/);
+    return match && {title: match[1], code: match[2]};
+}).filter(x=>x);
+
+snippets.map(({title, code}, i) => {
+    $('.snippet_list').append(`
+        <div class="snippet_title" onclick="loadSnippet(${i})">${title}</div>
+    `);
+})
+
+onkeyup = (event) => {
+    if(event.which == 37) page --;
+    if(event.which == 39) page ++;
+    if(page < 0) page = 0;
+    if(page >= snippets.length) page = snippets.length - 1;
+    loadSnippet(page);
+}
+
+loadSnippet(page);
+
+</script>
+
+</body>
+</html>
