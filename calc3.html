@@ -19,10 +19,13 @@ b<"="?
 ;
 F`C`'><input id=i>
 
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;G=_=>(a=p?a:c||a,c="",a=o&&r?z=eval(a+o+r):a);F=b=>i.value=z=b>"B"?(c=d=o="",a=r=p=0):1+b-0?c+=b<"0"?d?"":d=b:b:b<"="?(G(r=p?c:0),o=b+" ",p=1,z):(z=G(r=p?c||a:r||a),p=0,z);F`C`'><input id=i>
+
 
 -->
 
 <body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;
+G=_=>(a=p?a:c||a,c="",a=o&&r?z=eval(a+o+" "+r):a);
 F=b=>i.value=z=
 b>"B"?
     (c=d=o="",a=r=p=0)
@@ -31,9 +34,9 @@ b>"B"?
     c+=b<"0"?d?"":d=b:b
 :
 b<"="?
-    (p?r=c:a=c||a,r=p&&r,a=o&&r?z=eval(a+o+r):a,o=b+" ",p=1,c="",z)
+    (G(r=p?c:0),o=b,p=1,z)
 :
-    (p?r=c:a=c||a,r=r||a,z=a=o&&r?z=eval(a+o+r):a,p=0,c="",z)
+    (z=G(r=(p?c:r)||a),p=0,z)
 ;
 F`C`'><input id=i>
 
