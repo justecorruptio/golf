@@ -1,0 +1,86 @@
+<!--
+// 2+2= => 4
+// -2*2= => -4
+// -2-2 => -4
+// 5/0.5 => 10
+// 5/.5 => 10
+// -11/-.5 => 22
+// 4+-*/+5 => 4-5 (the extra operators are ignored)
+// 2+2=*2= => 4 (on the first "=") then 8 (on the second "=")
+// 2.2.2 => 2.22
+// 2*2*2= => 4 (on the second "*") then 8 (on the "=")
+
+// 002.2+2 => 4.2 (todo? meh)
+
+
+<body onload="for(k of'/=.0 *321 -654 C+987 ')O.outerHTML+=k>' '?`<button onclick=C('${k}')>${k}`:`<br>`;U=_=>z=a=''+eval(a+o+(b||a));C=c=>(c=='C'?(a=z='0',b=o='',d=e=2):1+c-0?c-.1||[d][d=0]?(b=z=e?c:b+c,e-2?0:o=a='',e=0):0:c=='='?(o?U(e-1?0:b=a):e?0:a=b,d=e=2):(e?e-1?b=a:0:o?U():a=b,o=c,d=e=1),O.value=z);C('C')"><input id=O>
+
+
+<body onload="for(k of'/=.0 *321 -654 C+987 ')
+O.outerHTML+=k>' '?`<button onclick=C('${k}')>`+k:`<p>`;
+U=_=>z=a=''+eval(a+o+(b||a));
+C=c=>(c>'B'?
+    (a=z='0',b=o='',d=e=2)
+:
+    1+c-0?
+        c-.1||[d][d=0]?
+            (b=z=e?c:b+c,e-2?0:o=a='',e=0)
+        :
+            0
+    :
+        c>'<'?
+            (o?U(e-1?0:b=a):e?0:a=b,d=e=2)
+        :
+            (e?e-1?b=a:0:o?U():a=b,o=c,d=e=1)
+,O.value=z);
+C`C`"><input id=O>
+
+
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;
+E=_=>eval(a+o+(c?r=c:r));
+F=b=>(
+b>"B"?
+    (z=0,a=o=c=d=r="")
+:
+.1-b?
+    z=c+=b
+:
+b=="."?
+    z=d=c+=d?"":"."
+:
+b>"<"?
+    (z=a=o?E():c,c=d="")
+:
+    (o?c?z=a=E():0:(a=c),c=d="",o=b)
+,i.value=z);F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>eval(a+o+(c?r=c:r));F=b=>(b>"B"?(z=0,a=o=c=d=r=""):.1-b?z=c+=b:b=="."?z=d=c+=d?"":".":b>"<"?(z=a=o?E():c,c=d=""):(o?c?z=a=E():0:(a=c),c=d="",o=b),i.value=z);F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>(a=o?eval(a+o+(c?r=c:r)):c,c=d="");F=b=>(b>"B"?(z=0,a=o=c=d=r=""):.1-b?z=c+=b:b=="."?z=d=c+=d?"":".":b>"<"?(E(),z=a):(c?E():0,o?z=a:0,o=b),i.value=z);F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>(a=o?z=eval(a+o+(c?r=c:r)):c,c=d="",a);F=b=>(b>"B"?(z=0,a=o=c=d=r=""):.1-b?z=c+=b:b=="."?z=d=c+=d?"":".":b>"<"?z=E():(c?E():0,o=b),i.value=z);F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>(a=o?z=eval(a+o+(c?r=c:r)):c,c=d="",a);F=b=>i.value=z=b>"B"?(a=o=c=d=r="",0):.1-b?c+=b:b=="."?d=c+=d?"":".":b>"<"?E():(c?E():0,o=b,z);F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>(a=o?z=eval(a+o+(c?r=c:r||a)):c,c=d="",a);F=b=>i.value=z=b>"B"?(a=o=c=d=r="",0):1+b-0?c+=b<"0"?d?"":d=b:b:b>"<"?E():(c&&E(),o=b,z);F`C`'><input id=i>
+
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>(a=o?z=eval(a+o+(c?r=c:r||a)):c||0,c=d="",a);F=b=>i.value=z=b>"B"?(a=o=c=d=r="",0):1+b-0?c+=b<"0"?d?"":d=b:b:b>"<"?E():(c&&E(),o=b,r="",z);F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;E=_=>(a=o?z=eval(a+o+(c?r=c:r||a)):c||0,c=d="",a);F=b=>i.value=z=b>"B"?(o=c=d=r="",a=0):1+b-0?c+=b<"0"?d?"":d=b:b:b>"<"?E():(c&&E(),o=b,r="",z);F`C`'><input id=i>
+
+
+
+-->
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;
+E=_=>(a=o?z=eval(a+o+(c?r=c:r||a)):c||0,c=d="",a);
+F=b=>(i.value=z=
+b>"B"?(o=c=d=r="",a=0)
+:
+1+b-0?c+=b<"0"?d?"":d=b:b
+:
+b>"<"?E():(c&&E(),o=b,r="",z),w=b);
+F`C`'><input id=i>
+

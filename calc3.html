@@ -1,0 +1,63 @@
+<!--
+1..2+*3==  10.8
+3*==       27
+5*2=5*2=   10
+
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;
+F=b=>i.value=z=
+b>"B"?
+    (c=d=o="",a=r=p=0)
+:
+1+b-0?
+    c+=b<"0"?d?"":d=b:b
+:
+b<"="?
+    (p?r=c:a=c||a,r=p&&r,a=o&&r?z=eval(a+o+r):a,o=b+" ",p=1,c="",z)
+:
+    (p?r=c:a=c||a,r=r||a,z=a=o&&r?z=eval(a+o+r):a,p=0,c="",z)
+;
+F`C`'><input id=i>
+
+
+-->
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;
+F=b=>i.value=z=
+b>"B"?
+    (c=d=o="",a=r=p=0)
+:
+1+b-0?
+    c+=b<"0"?d?"":d=b:b
+:
+b<"="?
+    (p?r=c:a=c||a,r=p&&r,a=o&&r?z=eval(a+o+r):a,o=b+" ",p=1,c="",z)
+:
+    (p?r=c:a=c||a,r=r||a,z=a=o&&r?z=eval(a+o+r):a,p=0,c="",z)
+;
+F`C`'><input id=i>
+
+
+<script>
+setTimeout(()=>{
+    M = {};
+    for(E of document.getElementsByTagName('button')){
+        M[E.innerText] = E;
+    }
+    [
+        ['1..5+**3===', '40.5'],
+        ['3*==', '27'],
+        ['5*2=5*2=', '10'],
+        ['-11/-.5=', '-11.5'],
+        ['2=3*6=', '18'],
+        ['2*2*2*2*', '16'],
+    ].forEach(([A, B])=>{
+        for(C of A){
+            M[C].click();
+        }
+        console.warn(A, B, B == i.value ? 'Pass': 'Fail: ' + i.value);
+        M['C'].click();
+    });
+
+}, 100);
+</script>
