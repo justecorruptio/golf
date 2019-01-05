@@ -1,8 +1,8 @@
 <input id=I value=z=(y*y+x*x)/99><p><canvas id=a><script>S=250
 v=(x,y,r)=>[Math.sin(p=Math.atan2(y,x)+r)*(d=(y*y+x*x)**.5),Math.cos(p)*d]
-f=(X,Y)=>([x,y]=v(x=X*4-88,y=Y*4-88,w,eval(I.value)),[z,y]=v(z/z?z:0,y,1),y+=S,[S+x/y*S,S+z/y*S])
+f=(X,Y)=>([x,y]=v(x=X*4-88,y=Y*4-88,w,eval(J=I.value)),[z,y]=v(z/z?z:0,y,1),y+=S,[S+x/y*S,S+z/y*S])
 if(H=location.hash)I.value=atob(H.slice(1))
 setInterval(e=>{a.height=a.width=500
-d='';for(w+=X=44;--X;)for(Y=43;--Y;)d+=`M${f(X,Y)}L${f(X,Y+1)}M${f(Y,X)}L${f(Y+1,X)}`
-a.getContext`2d`.stroke(new
-Path2D(d));location.hash=btoa(I.value)},w=33)</script>
+for(w+=X=44;--X;)for(Y=43;--Y;)a.getContext`2d`.stroke(new
+Path2D(`M${f(X,Y)}L${f(X,Y+1)}M${f(Y,X)}L${f(Y+1,X)}`))
+location.hash=btoa(J)},w=9)</script>

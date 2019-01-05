@@ -28,6 +28,8 @@
 <svg onload='i=id++;outerHTML+=i%64?i&i/64&&`_`:`-`'>
 <svg onload=i=id++;outerHTML+=i%64?i&i/64&&`_`:`-`>
 
+<svg onload=for(i=2e3;i--;)write(i%63?i&i/32&&`_`:x)>
+
 <canvas id=a onclick=with(a.getContext`2d`)for(Z=i=75;i--;)fillText(drawImage(a,(V=i%3)*Z,V%2*Z,150,Z),1,1)>
 <canvas id=a onclick='with(a.getContext`2d`)for(i=128 * 128;i--;)fillText(z=" ."[+!(i&i>>7)],(i+i/256)%128,i>>7)'>
 <canvas id=a onclick='for(i=2**14;i--;)a.getContext`2d`.fillText(z=" ."[+!(i&i>>7)],(i+i/256)%128,i>>7)'>
@@ -40,4 +42,4 @@
 <canvas onclick=for(i=2**14;i--;)getContext`2d`.fillRect(i/.996%128,j=i/128,1,!(i&j))>
 -->
 
-<svg onload=for(i=4096;i--;)write(i%64?i&i/64&&`_`:`-`)>
+<iframe onload=(i=id++)<8?outerHTML+=i%64?i&i/64&&`_`:1:0>

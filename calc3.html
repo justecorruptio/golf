@@ -21,14 +21,11 @@ F`C`'><input id=i>
 
 <body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;G=_=>(a=p?a:c||a,c="",a=o&&r?z=eval(a+o+r):a);F=b=>i.value=z=b>"B"?(c=d=o="",a=r=p=0):1+b-0?c+=b<"0"?d?"":d=b:b:b<"="?(G(r=p?c:0),o=b+" ",p=1,z):(z=G(r=p?c||a:r||a),p=0,z);F`C`'><input id=i>
 
-
--->
-
 <body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;
 G=_=>(a=p?a:c||a,c="",a=o&&r?z=eval(a+o+" "+r):a);
-F=b=>i.value=z=
+F=b=>i.value=
 b>"B"?
-    (c=d=o="",a=r=p=0)
+    (c=d=o="",z=a=r=p=0)
 :
 1+b-0?
     c+=b<"0"?d?"":d=b:b
@@ -39,6 +36,27 @@ b<"="?
     (z=G(r=(p?c:r)||a),p=0,z)
 ;
 F`C`'><input id=i>
+
+<body onload='for(b of"C/=.0 *321 -654 +987 ")i.outerHTML+=b<"!"?"<p>":`<button onclick=F("${b}")>`+b;F=b=>i.value=z=b>"B"?(c=d=o="",a=r=p=0):1+b-0?c+=b<"0"?d?"":d=b:b:(q=b<"=",p?r=c:a=c||a,r=q?p&&r:r||a,a=o&&r?z=eval(a+o+" "+r):a,o=q?b:o,p=q,c="",z=q?z:a);F`C`'><input id=i>
+<body onload='for(s of"C/=.0 *321 -654 +987 ")i.outerHTML+=s<"!"?"<p>":`<button onclick=F("${s}")>`+s;F=b=>i.value=z=b>"B"?(c=d=o="",a=r=p=0):1+b-0?c+=b<"0"?d?"":d=b:b:(q=b<"=",p?r=c:a=c||a,r=q?p&&r:r||a,a=o&&r?z=eval(a+o+s+r):a,o=q?b:o,p=q,d=c="",q?z:a);F`C`'><input id=i>
+<body onload='for(s of"C/=.0 *321 -654 +987 ")i.outerHTML+=s<"!"?"<p>":`<button onclick=F("${s}")>`+s;F=b=>i.value=z=b>"B"?(c=d=o="",a=r=p=0):1+b-0?c+=b-.1?b:d?"":d=b:(q=b<"=",p?r=c:a=c||a,r=q?p&&r:r||a,a=o&&r?z=eval(a+o+s+r):a,o=q?b:o,p=q,d=c="",q?z:a);F`C`'><input id=i>
+
+-->
+
+<body onload='for(s of"C/=.0 *321 -654 +987 ")i.outerHTML+=s<"!"?"<p>":`<button onclick=F("${s}")>`+s;
+F=b=>i.value=z=
+b>"B"?
+    (c=d=o="",a=r=p=0)
+:
+1+b-0?
+    c+=b-.1?b:d?"":d=b
+:
+//(q=b<"=",p?r=c:a=c||a,r=q?p&&r:r||a,a=o&&r?z=eval(a+o+s+r):a,o=q?b:o,p=q,d=c="",q?z:a)
+(q=b<"=",p?r=c:a=c||a,r=q?p?r:0:r||a,a=o&&r?z=eval(a+o+s+r):a,o=q?b:o,p=q,d=c="",q?z:a)
+;
+F`C`'><input id=i>
+
+
 
 
 <script>
@@ -54,6 +72,8 @@ setTimeout(()=>{
         ['-11/-.5=', '-11.5'],
         ['2=3*6=', '18'],
         ['2*2*2*2*', '16'],
+        ['-1-=', '0'],
+        ['2.5.-1.7=', '0.8'],
     ].forEach(([A, B])=>{
         for(C of A){
             M[C].click();
