@@ -1,0 +1,35 @@
+<input id=I value=z=y/x*9><p><canvas id=a width=500 height=500>
+<script>
+c=a.getContext`2d`;
+var P = [];
+var w = 0;
+if(location.hash)I.value=atob(location.hash.slice(1));
+setInterval(e=>{
+  a.width ^= 0;
+  w += .01;
+  for(X = 38; X--;){
+    P[X] = [];
+    for(Y = 38; Y--;){
+      x = X * 5 - 90;
+      y = Y * 5 - 90;
+      eval(I.value);
+      p=Math.atan2(y,x)-w;
+      d=Math.hypot(y,x);
+      x=Math.sin(p)*d;
+      y=Math.cos(p)*d;
+      p=Math.atan2(y,z)+1;
+      d=Math.hypot(y,z);
+      z=Math.sin(p)*d;
+      y=Math.cos(p)*d;
+      y+=250;
+      P[X][Y] = [250+x/y*250, 250+z/y*250];
+      c.moveTo(P[X][Y][0], P[X][Y][1]);
+      try{c.lineTo(P[X][Y+1][0], P[X][Y+1][1])}catch(e){};
+      c.moveTo(P[X][Y][0], P[X][Y][1]);
+      try{c.lineTo(P[X+1][Y][0], P[X+1][Y][1])}catch(e){};
+    }
+  }
+  c.stroke();
+  location.hash=btoa(I.value);
+}, 33);
+</script>

@@ -1,0 +1,29 @@
+<pre id=t>
+<script>
+s = 16;
+b=[];//bombs
+v=[];//viewed
+r = p => {
+    for(i=0;i<s * s;i++){
+        if (i%s == 0) {
+            if(p)
+            t.innerHTML += '\n';
+        }
+        else {
+            if(!p){
+                b[i] = 1 + (Math.random() < .2);
+            }
+            else{
+                n = 0;
+                for(j=0;j<9;j++){
+                    n += b[i+(j%3)-1+s*(j/3|0)-s] == 2;
+                }
+                t.innerHTML += `<u>|${b[i]==2?'@':n?n:' '}`;
+            }
+        }
+    }
+}
+
+r();
+r(1);
+</script>
