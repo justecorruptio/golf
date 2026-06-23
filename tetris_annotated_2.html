@@ -1,0 +1,327 @@
+<body onload="
+/*
+    Bare-bones golfed Tetris, v2. (348 bytes)
+
+    Golfing done by justecorruptio, veu, mmastrac, aemkei, p01
+
+    This version replaces the string lookup table and inner
+    rotation loop with a function v() that uses magic numbers
+    to compute rotated block coordinates directly. It also
+    stores the event object in the save array, eliminating the
+    need for ||e in the settle check.
+
+    Use body's onload attribute to trigger script execution.
+    This is shorter than using <script> tags because the
+    browser wraps the attribute code in a function with
+    with(document){with(body){}} scope chain. Arrow functions
+    defined within capture this scope, which is how onkeyup
+    resolves to body.onkeyup at definition time.
+
+    Variables
+    ---------
+    v: function(c) that returns a rotated block coordinate
+    c: parameter to v, selects x vs y coord and rotation
+    h: temporary inside v, raw coordinate from magic number
+    B: tetris board, array of row bitfields
+    C: temporary copy of board with current piece drawn on
+    x, y: position of current falling piece (spawn at 4, 4)
+    t: integer [0, 6], current tetromino piece type
+    r: rotation counter, starts at 210, only increases
+    S: score (total rows cleared)
+    e: keyup event object, or undefined for timer ticks
+    u: saved state [x, y, r+4, e] for undo on collision
+    g: key offset (e.which - 38)
+    b: board row index for current block
+    k: column bitmask (power of 2) for current block
+    i: loop counter, counts down from r+4 to 0
+    z: string being built for rendered board output
+    Z: <body> DOM element, accessed via id attribute
+    T: constant = 210 (interval ms and render threshold)
+
+    Board Layout
+    ------------
+    Each row is stored as a 12-bit integer. Bits 1-10 are the
+    10 playfield columns. Bits 0 and 11 are virtual walls
+    (value 2049 = 100000000001 in binary) used for collision
+    detection at the left and right edges.
+
+    A full row has bits 1-10 all set = 2046 (11111111110).
+
+    The board grows dynamically as pieces are placed. Floor
+    detection uses the ~b check (b=-1 when a block is below
+    the board, and ~(-1)=0 which is falsy).
+*/
+
+/*
+    The v() function: magic number piece encoding.
+
+    Tetromino pieces are encoded in two magic numbers:
+        37461 and 74164 (= 37461 + 36703)
+
+    Each magic number packs 2-bit coordinate values (0-3)
+    at specific bit positions. One number encodes all the
+    x-coordinates, the other all the y-coordinates.
+
+    c%2 selects which magic number to use:
+        c even: 37461+0 = 37461
+        c odd:  37461+36703 = 74164
+
+    The shift formula i%4*2+(i&2)*t extracts the right
+    2-bit value for block i of piece t:
+        i%4=0: shift=0  (shared block, same for all pieces)
+        i%4=1: shift=2  (shared block, same for all pieces)
+        i%4=2: shift=4+2t (unique block, varies by piece)
+        i%4=3: shift=6+2t (unique block, varies by piece)
+
+    Chain overlap trick: the shift for block 3 of piece t
+    equals the shift for block 2 of piece t+1:
+        6+2t = 4+2(t+1)
+    So the 4th block of each piece shares its bit position
+    with the 3rd block of the next piece, compressing the
+    encoding.
+
+    c&2 controls rotation. Since r >= 210, both r&2 and
+    (r+1)&2 are always nonzero, so the rotation formula
+    3-t/5-h is always applied. This flips the coordinate
+    around a piece-dependent axis:
+        t=0 (I piece): axis at 3.0 (4-wide rotation)
+        t=1-5 (J,L,S,T,Z): axis near 2.4-2.0
+        t=6 (O piece): axis at 1.8 (effectively invariant)
+
+    Rotation is achieved by the interplay of c%2 (which
+    swaps the x/y magic numbers, acting as a transpose)
+    and the flip formula. Different r values cycle through
+    all 4 rotation states.
+
+    Note: v() can return non-integer values (e.g., 2.8 from
+    3-t/5-h when t is not a multiple of 5). The ~ operator
+    used later (in ~v(r)) performs int32 truncation, which
+    is load-bearing for correct collision detection.
+*/
+v=c=>(
+    h = 37461 + c%2*36703  // Select magic number by parity
+        >> i%4*2 + (i&2)*t  // Right-shift to the block's position
+        & 3,                // Mask to 2 bits: raw coordinate h
+    c&2                     // Always true for r >= 210
+        ? 3-t/5-h           // Apply rotation: flip around axis
+        : h                 // (dead branch for normal gameplay)
+);
+
+/*
+    Initialize C to [0], and set S (score) and u (saved state)
+    to 0. u=0 is falsy, which signals the settle logic on the
+    first frame to run C.filter() and choose the first piece.
+*/
+C=[S=u=0];
+
+/*
+    Set up the game loop. The same arrow function serves as
+    both the setInterval callback (e=undefined) and the
+    onkeyup handler (e=KeyboardEvent). This is assigned to
+    onkeyup via the with(body) scope chain, which resolves
+    onkeyup to body.onkeyup at definition time.
+*/
+setInterval(onkeyup=e=>{
+
+/*
+    Combined settle-and-copy expression.
+
+    If u is truthy (piece is still alive, no collision from
+    gravity), B is unchanged. If u is falsy (piece collided
+    on a timer tick), settle the piece by filtering C:
+
+    filter() keeps rows where _ != 2046 (not full).
+    For kept rows: x=y=4 resets spawn position (truthy
+    return value tells filter to keep the row).
+    For full rows: !++S increments score and returns false
+    (filter discards the row).
+
+    The comma expression t=r%7 selects the next piece type
+    based on the rotation counter, producing pseudo-random
+    piece selection since r grows by 4 each piece plus any
+    rotation key presses.
+
+    Then C=[...B] duplicates the board into a working copy.
+    C will have the current piece drawn onto it during the
+    render phase; B remains the clean board state.
+
+    In the original version, this was two separate operations:
+        B = u||e ? B : C.filter(...)
+        C = [...B]
+    Storing e in the save array (see below) lets us simplify
+    u||e to just u, and the whole thing folds into one line.
+*/
+C=[...B=u?B:C.filter(_=>_-2046?x=y=4:!++S,t=r%7)];
+
+/*
+    Save the current piece state for potential undo.
+
+    x, y: current position
+    i=r+4: serves double duty:
+        - Sets the loop counter i (at least 214)
+        - Stored as the 3rd element; on restore, this
+          becomes the new r, advancing r by 4. Since
+          r%4 is unchanged, the rotation is preserved.
+          But r%7 changes, giving a new piece type on
+          the next settle.
+    e: the event object (or undefined for timer ticks).
+       On restore, this becomes the new u:
+        - Key press: e is truthy -> u stays truthy ->
+          next frame keeps B unchanged (move undone,
+          piece continues)
+        - Timer tick: e is undefined -> u becomes falsy ->
+          next frame runs filter() to settle the piece
+*/
+u=[x,y,i=r+4,e];
+
+/*
+    Main for-loop. Handles input, collision detection, piece
+    placement, and rendering in a single loop.
+
+    INIT clause: handle keyboard input or gravity.
+    Using ES2020 optional chaining: e?.which is undefined
+    when e is undefined (timer tick), making g=NaN.
+    NaN-2 is NaN (falsy), so the else branch runs: y++.
+    This saves 2 bytes over the original e&&(g=e.which-38).
+*/
+for(
+    (g=e?.which-38)  // g = keycode - 38, or NaN if no key
+        -2?          // If key is NOT down arrow (g != 2),
+            g?       //   If key is left or right arrow,
+                x-=g //     Move piece (g=-1: right, g=1: left)
+            :        //   Else key is up arrow (g=0),
+                r++  //     Rotate piece
+        :            // Else down arrow or timer tick,
+            y++      //   Drop piece one row
+    ;
+
+/*
+    TEST clause: decrement i and continue while nonzero.
+
+    i starts at r+4 (at least 214). The first iterations
+    (i > T=210) are collision-check mode: test whether the
+    piece's 4 blocks fit at the current position. The
+    remaining 209 iterations (i from 209 to 1) are render
+    mode: draw the 19x11 board (19 rows, 10 columns + 1
+    separator character per row).
+
+    As r grows over time, more iterations are spent in
+    collision-check mode redundantly rechecking the same
+    4 block positions (i%4 cycles). This wastes CPU but
+    doesn't affect correctness. It causes gradual slowdown
+    in Firefox (Chrome's JIT handles it).
+*/
+    --i;
+
+/*
+    UPDATE clause: collision detection, rendering, or restore.
+
+    First, compute the board row index for this block:
+        v(r) returns the y-coordinate of block i%4
+        ~v(r) truncates to int32 and inverts (~2 = -3)
+        b = ~v(r) + 26 - y maps to the board row index
+
+    Then check for collision:
+        ~B[b] inverts the board row bitfield
+        ~B[b] - 2049 is equivalent to ~(B[b] | 2049):
+            it sets the wall bits and inverts, so a 1-bit
+            in the result means the cell is FREE.
+            (For undefined B[b]: ~undefined = -1, and
+            -1-2049 = -2050, which has bits 1-10 set,
+            meaning an empty row — correct behavior.)
+        & k tests whether the piece's column is free.
+
+    The && ~b check catches the floor:
+        When b = -1 (block below the board), ~b = 0
+        (falsy), triggering collision. The piece can only
+        overshoot by one row per tick, so b = -1 is the
+        only below-board case.
+
+    If NO collision (truthy):
+        i < T (render mode)?
+            Draw one character of the board to z, and
+            set the output. See rendering section below.
+        else (collision-check mode):
+            z = S initializes z to the score string.
+            This replaces the original for(z=S;...) init,
+            freeing the init clause for input handling.
+
+    If collision (falsy):
+        Restore saved state: [x,y,r,u] = u
+        x and y revert to pre-move values.
+        r becomes r+4 (see save explanation above).
+        u becomes e (see save explanation above).
+*/
+    ~B[b=~v(r)+26-y]-2049 & k && ~b  // Collision check
+    ?
+        i<T?  // No collision. Render mode?
+
+/*
+    Rendering: build the board string character by character.
+
+    The template literal `_#\n` is indexed by 0, 1, or 2:
+        0: '_' (empty cell)
+        1: '#' (filled cell)
+        2: '\n' (newline, row separator)
+
+    The index expression has two parts:
+
+    C[b]|=k — Draw the current piece block onto the
+    temporary board C. This uses the b and k values
+    computed for the current i%4 block. Since i%4 cycles
+    through all 4 blocks repeatedly during the 209 render
+    iterations, each block is drawn ~52 times. Bitwise OR
+    is idempotent, so this is harmless.
+
+    i%11 ? C[i/11|0]>>i%11&1 : 2 — Read the cell value:
+        i%11 == 0: row boundary -> index 2 (newline)
+        i%11 != 0: extract bit i%11 from row C[i/11|0]
+            0 -> index 0 ('_', empty)
+            1 -> index 1 ('#', filled)
+
+    The character is concatenated with '| ' (pipe-space
+    separator that makes the output more square in
+    proportional fonts).
+
+    z accumulates the full board string. Z.innerText = z
+    updates the display on every character, but only the
+    final update (i=1) matters visually.
+*/
+            Z.innerText=z+=`_#
+`[C[b]|=k,i%11?C[i/11|0]>>i%11&1:2]+`| `
+
+        :
+            z=S  // Collision-check mode: init z to score
+
+    : // Collision detected: restore saved state
+
+        [x,y,r,u]=u
+
+/*
+    BODY clause: compute the column bitmask k for the
+    current block.
+
+    v(r+1) returns the x-coordinate of block i%4.
+    r+1 has opposite parity from r, so it uses the other
+    magic number (x-coords vs y-coords). Adding the piece's
+    x position gives the absolute column. 1<< converts to
+    a single-bit mask for the bitfield operations.
+
+    The body executes BEFORE the update clause, so k is
+    ready for the collision check and C[b]|=k operations.
+*/
+)k=1<<v(r+1)+x
+
+/*
+    End of arrow function. r=T=210 sets both the interval
+    (210 ms between ticks) and the render threshold T
+    (loop counter values below 210 trigger rendering).
+    r=210 also initializes the rotation counter.
+*/
+},r=T=210)
+
+/*
+    The id=Z attribute makes the <body> element accessible
+    as the global variable Z, used by Z.innerText to update
+    the display.
+*/"id=Z>
