@@ -37,20 +37,23 @@ M[17],X=16,W,k;
     and, via x>X, whether to move for real (only the huge key value is >X;
     the dry-run args 0 and 1 are not).  Each line compacts toward its start:
     read cursor j scans the cells, write cursor k emits results, held tile l
-    waits to be placed or merged with the next equal tile.  x==0 also draws.
+    waits to be placed or merged with the next equal tile.  The x==0 pass
+    also draws (per-cell print + per-row newline); the screen clear is done
+    once in main, just before this call.
 */
 s(x,i,j,l,P,t){
-    x||puts("\e[H\e[J");          /* x==0: home cursor + clear screen */
     for(i=4;i--;x||puts(""))      /* each of 4 lines (x==0: end with a newline) */
         /* for(A;B;)C,D == for(A;B;D)C: the slide rides the update clause,
            leaving the body as just the write-slot CSE t=w(x,i,k) */
         for(j=k=l=0;k<4;          /* read cursor j, write cursor k, held tile l */
             j<4
             ?   P=M[w(x,i,j++)],          /* read next cell, advance j */
-                (x||printf(P?"%4d|":"    |",P)),  /* x==0: draw it (blank if empty) */
+                x||printf(P?"%4d|":"    |",P),    /* x==0: draw it (blank if empty) */
                 W|=P>>11,                 /* P>=2048 -> set WIN bit (2048>>11==1) */
-                l*P?M[t]=l<<(l==P),k++:0, /* both nonzero: emit l (doubled if l==P, a merge), bump k */
-                l=P?l-P?P:0:l             /* hold P / clear (just merged) / keep across a gap */
+                l*P?M[t]=l+(l&P),k++:0, /* both nonzero: emit. tiles are powers of 2, so l&P is
+                                           l when l==P (-> 2l, a merge) and 0 otherwise (-> l, a block); bump k */
+                l=P?P^l&P:l               /* update held tile (when P!=0): same power-of-2 trick --
+                                             P^(l&P) is 0 when l==P (just merged) else P (hold); P==0 keeps l */
             :   (M[t]=l,++k,              /* reads done: flush held tile, bump k */
                 W|=2*!l,l=0))             /* this slot ended empty -> MOVE bit; reset l */
         t=x>X?w(x,i,k):X;                 /* write target: real rotated slot, or scratch X */
@@ -77,10 +80,11 @@ main(i){
     for(i=X+rand(k||system("stty cbreak"))%X;M[i%X]*i;i--);
     i?M[i%X]=2<<rand()%2:0;       /* drop a 2 or a 4 into it */
 
-    /* rebuild W and redraw in two dry runs: s(0) (horizontal, and the
-       renderer) + s(1) (vertical) cover every move for the MOVE bit, and
-       each sets the WIN bit as it reads cells; the W=0 arg clears first */
-    s(W=0),s(1);
+    /* clear the screen, then rebuild W and redraw in two dry runs: s(0)
+       (horizontal, and the renderer) + s(1) (vertical) cover every move for
+       the MOVE bit, and each sets the WIN bit as it reads cells; the W=0 arg
+       clears the flags first.  (\e[H homes, \e[J erases to end-of-screen.) */
+    puts("\e[H\e[J"),s(W=0),s(1);
 
     /* W==2 = playable: read the 3-byte escape ESC '[' letter into k and move
        with s(k%985).  w() takes k%985 mod 4 as the direction; 985 is the
