@@ -34,7 +34,7 @@ M[17],X=16,W,k;
 
 /*
     s(x): slide + merge every line.  x carries the direction (w uses x mod 4)
-    and, via x>X, whether to move for real (only the huge key value is >X;
+    and, via x>1, whether to move for real (only the huge key value is >1;
     the dry-run args 0 and 1 are not).  Each line compacts toward its start:
     read cursor j scans the cells, write cursor k emits results, held tile l
     waits to be placed or merged with the next equal tile.  The x==0 pass
@@ -50,13 +50,14 @@ s(x,i,j,l,P,t){
             ?   P=M[w(x,i,j++)],          /* read next cell, advance j */
                 x||printf(P?"%4d|":"    |",P),    /* x==0: draw it (blank if empty) */
                 W|=P>>11,                 /* P>=2048 -> set WIN bit (2048>>11==1) */
-                l*P?M[t]=l+(l&P),k++:0, /* both nonzero: emit. tiles are powers of 2, so l&P is
-                                           l when l==P (-> 2l, a merge) and 0 otherwise (-> l, a block); bump k */
-                l=P?P^l&P:l               /* update held tile (when P!=0): same power-of-2 trick --
-                                             P^(l&P) is 0 when l==P (just merged) else P (hold); P==0 keeps l */
+                /* cell non-empty (P!=0; the P? wrapper tests it once for both steps):
+                   - if a tile is held (l), emit it -- l+(l&P) is 2l when l==P (merge) else l (block) -- and bump k
+                   - then set the held tile to P^(l&P): 0 if we just merged (l==P), else P (hold/carry)
+                   P==0 falls to the :0 and leaves l untouched (carry the hold across a gap). */
+                P?l?M[t]=l+(l&P),k++:0,l=P^l&P:0
             :   (M[t]=l,++k,              /* reads done: flush held tile, bump k */
                 W|=2*!l,l=0))             /* this slot ended empty -> MOVE bit; reset l */
-        t=x>X?w(x,i,k):X;                 /* write target: real rotated slot, or scratch X */
+        t=x>1?w(x,i,k):X;                 /* write target: real rotated slot (move), or scratch X (dry run) */
 }
 
 /*
@@ -69,29 +70,21 @@ w(d,i,j){
     return d ? w(d-1,j,3-i) : 4*i+j;
 }
 
-/*
-    main(i): one call per turn, tail-recursing -- spawn, score, draw, read,
-    move, repeat.  rand() is unseeded, so every run plays out identically.
-*/
+/* main(i): one turn per call, tail-recursing. rand() is unseeded, so every
+   run is identical. i is scratch (the spawn loop overwrites it). */
 main(i){
-    /* stty setup smuggled in as rand()'s (ignored) arg so it runs exactly
-       once -- k is 0 only on the first call.  Then spawn: from a random
-       start in [16,31] scan down for an empty cell (i hits 0 if board full) */
+    /* stty setup hides in rand()'s ignored arg, gated by k (0 only on the
+       first call) so it runs once.  Then spawn: from a random start in
+       [16,31] scan down for an empty cell (i hits 0 if the board is full). */
     for(i=X+rand(k||system("stty cbreak"))%X;M[i%X]*i;i--);
     i?M[i%X]=2<<rand()%2:0;       /* drop a 2 or a 4 into it */
 
-    /* clear the screen, then rebuild W and redraw in two dry runs: s(0)
-       (horizontal, and the renderer) + s(1) (vertical) cover every move for
-       the MOVE bit, and each sets the WIN bit as it reads cells; the W=0 arg
-       clears the flags first.  (\e[H homes, \e[J erases to end-of-screen.) */
+    /* clear, then rebuild W + redraw via two dry runs: s(W=0) resets the
+       flags and does horizontal (also the renderer), s(1) does vertical. */
     puts("\e[H\e[J"),s(W=0),s(1);
 
-    /* W==2 = playable: read the 3-byte escape ESC '[' letter into k and move
-       with s(k%985).  w() takes k%985 mod 4 as the direction; 985 is the
-       smallest modulus that both bounds the recursion AND maps the four
-       arrows to {Up:3,Down:1,Right:2,Left:0} -- the natural map with Left and
-       Right swapped, cancelling the mirrored render.  (Assumes ESC '[' arrows,
-       not SS3/application-mode ESC O.)  Any other W: print WIN/LOSE and
-       return, unwinding the recursion back to the OS. */
+    /* W==2 = playable: read the 3-byte arrow escape into k, move with
+       s(k%985).  Else print WIN (W&1) / LOSE and return, unwinding to the OS.
+       (Reads the whole ESC '[' seq, so assumes CSI arrows, not SS3.) */
     W-2?puts(W&1?"WIN":"LOSE"):read(0,&k,3)|main(s(k%985));
 }
