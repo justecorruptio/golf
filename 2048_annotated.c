@@ -51,10 +51,12 @@ s(x,i,j,l,P,t){
                 x||printf(P?"%4d|":"    |",P),    /* x==0: draw it (blank if empty) */
                 W|=P>>11,                 /* P>=2048 -> set WIN bit (2048>>11==1) */
                 /* cell non-empty (P!=0; the P? wrapper tests it once for both steps):
-                   - if a tile is held (l), emit it -- l+(l&P) is 2l when l==P (merge) else l (block) -- and bump k
-                   - then set the held tile to P^(l&P): 0 if we just merged (l==P), else P (hold/carry)
+                   - if a tile is held (l), emit it -- l+P&~P == (l+P)&~P is 2l when l==P (the carry lands
+                     in a higher bit ~P doesn't touch) else l (~P clears P's bit from l|P) -- and bump k
+                   - then set the held tile to P&~l: 0 if we just merged (l==P, they share the bit),
+                     else P (hold/carry) -- powers of 2, so ~l clears P's bit only when l==P
                    P==0 falls to the :0 and leaves l untouched (carry the hold across a gap). */
-                P?l?M[t]=l+(l&P),k++:0,l=P^l&P:0
+                P?l?M[t]=l+P&~P,k++:0,l=P&~l:0
             :   (M[t]=l,++k,              /* reads done: flush held tile, bump k */
                 W|=2*!l,l=0))             /* this slot ended empty -> MOVE bit; reset l */
         t=x>1?w(x,i,k):X;                 /* write target: real rotated slot (move), or scratch X (dry run) */
@@ -76,7 +78,7 @@ main(i){
     /* stty setup hides in rand()'s ignored arg, gated by k (0 only on the
        first call) so it runs once.  Then spawn: from a random start in
        [16,31] scan down for an empty cell (i hits 0 if the board is full). */
-    for(i=X+rand(k||system("stty cbreak"))%X;M[i%X]*i;i--);
+    for(i=X+rand(k||system("stty cbreak"))%X;M[--i%X]*i;);
     i?M[i%X]=2<<rand()%2:0;       /* drop a 2 or a 4 into it */
 
     /* clear, then rebuild W + redraw via two dry runs: s(W=0) resets the
