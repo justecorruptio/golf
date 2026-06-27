@@ -1,5 +1,5 @@
 /*
-    Golfed 2048 for the terminal (~425 bytes).  Build & play:
+    Golfed 2048 for the terminal (409 bytes).  Build & play:
         cc 2048.c -o 2048 && ./2048
     Arrow keys slide; reach 2048 to win, fill the board with no move to lose.
 
@@ -11,9 +11,15 @@
                 cell that dry-run slides write to instead of the board.
         X     : 16 -- board size; also the wrap modulus (i%X) and the
                 scratch index M[X].
-        W     : status bits, rebuilt each turn -- W&1: a 2048 tile exists
-                (won); W&2: an empty slot remains after a slide (a move is
-                still possible).  W==2 means "still in play".
+        W     : status, rebuilt each turn from W=1.  Each read ORs the
+                cell value in (W|=P), so the tile bits pile into W; bit 11
+                is set iff a 2048 exists (won).  Tiles are powers of 2 >=2,
+                so P is always even (never 1) -- bit 0 is never touched by
+                W|=P, leaving it free as the "stuck" flag: it starts 1 and
+                is cleared (W&=~!l) whenever a slide leaves an empty slot,
+                so bit 0==1 means no move is possible.  The tail masks just
+                those two flags out of the value noise with W&2049 (bits 0
+                and 11): W&2049==0 means "still in play".
         k     : three roles -- s()'s write cursor (left at 4 after each
                 call), the buffer read() drops the 3-byte arrow escape into,
                 and (0 only on the very first call) the "stty done" flag.
@@ -28,6 +34,10 @@
       * w() rotates by recursing d times, and 4 rotations = identity, so it
         self-reduces mod 4.  The move can therefore pass x in raw (no %4/%7)
         as long as x is bounded -- hence k%985.
+      * Masked status -- W|=P lets every cell value pollute W, but the two
+        flags that matter live on isolated bits (0 = stuck, 11 = won), so
+        W&2049 reads exactly those two and discards bits 1..10.  That fold
+        is only legal because P is always even (so bit 0 stays clean).
 */
 
 M[17],X=16,W,k;
@@ -47,9 +57,8 @@ s(x,i,j,l,P,t){
            leaving the body as just the write-slot CSE t=w(x,i,k) */
         for(j=k=l=0;k<4;          /* read cursor j, write cursor k, held tile l */
             j<4
-            ?   P=M[w(x,i,j++)],          /* read next cell, advance j */
+            ?   W|=P=M[w(x,i,j++)],          /* read cell into P, advance j; W|=P parks 2048 on bit 11 */
                 x||printf(P?"%4d|":"    |",P),    /* x==0: draw it (blank if empty) */
-                W|=P>>11,                 /* P>=2048 -> set WIN bit (2048>>11==1) */
                 /* cell non-empty (P!=0; the P? wrapper tests it once for both steps):
                    - if a tile is held (l), emit it -- l+P&~P == (l+P)&~P is 2l when l==P (the carry lands
                      in a higher bit ~P doesn't touch) else l (~P clears P's bit from l|P) -- and bump k
@@ -58,7 +67,9 @@ s(x,i,j,l,P,t){
                    P==0 falls to the :0 and leaves l untouched (carry the hold across a gap). */
                 P?l?M[t]=l+P&~P,k++:0,l=P&~l:0
             :   (M[t]=l,++k,              /* reads done: flush held tile, bump k */
-                W|=2*!l,l=0))             /* this slot ended empty -> MOVE bit; reset l */
+                W&=~!l,l=0))            /* empty slot (l==0) -> clear "stuck" bit 0; reset l.
+                                           ~!l is ~1=...0 when l==0 (clears bit 0), ~0=-1 when
+                                           l!=0 (no-op) -- so only real empties unstick. */
         t=x>1?w(x,i,k):X;                 /* write target: real rotated slot (move), or scratch X (dry run) */
 }
 
@@ -81,12 +92,13 @@ main(i){
     for(i=X+rand(k||system("stty cbreak"))%X;M[--i%X]*i;);
     i?M[i%X]=2<<rand()%2:0;       /* drop a 2 or a 4 into it */
 
-    /* clear, then rebuild W + redraw via two dry runs: s(W=0) resets the
-       flags and does horizontal (also the renderer), s(1) does vertical. */
-    puts("\e[H\e[J"),s(W=0),s(1);
+    /* clear, then rebuild W + redraw via two dry runs: s(W=1) resets W to 1
+       and does vertical; s(0) does horizontal (and the renderer rides it). */
+    puts("\e[H\e[J"),s(W=1),s(0);
 
-    /* W==2 = playable: read the 3-byte arrow escape into k, move with
-       s(k%985).  Else print WIN (W&1) / LOSE and return, unwinding to the OS.
+    /* W&2049==0 = playable (bit 0 clear: a move exists; bit 11 clear: not won):
+       read the 3-byte arrow escape into k and move with s(k%985).  Else the
+       game is over -- print WIN (bit 11, W>>11) / LOSE and return to the OS.
        (Reads the whole ESC '[' seq, so assumes CSI arrows, not SS3.) */
-    W-2?puts(W&1?"WIN":"LOSE"):read(0,&k,3)|main(s(k%985));
+    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,3)|main(s(k%985));
 }
