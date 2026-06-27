@@ -1,5 +1,5 @@
 /*
-    Golfed 2048 for the terminal (409 bytes).  Build & play:
+    Golfed 2048 for the terminal (407 bytes).  Build & play:
         cc 2048.c -o 2048 && ./2048
     Arrow keys slide; reach 2048 to win, fill the board with no move to lose.
 
@@ -55,21 +55,23 @@ s(x,i,j,l,P,t){
     for(i=4;i--;x||puts(""))      /* each of 4 lines (x==0: end with a newline) */
         /* for(A;B;)C,D == for(A;B;D)C: the slide rides the update clause,
            leaving the body as just the write-slot CSE t=w(x,i,k) */
+        /* The for-update clause is itself `l=<ternary>`, so each pass the held tile l
+           becomes whatever the taken branch evaluates to -- no separate `l=` write,
+           and the flush's value doubles as the hold-reset. */
         for(j=k=l=0;k<4;          /* read cursor j, write cursor k, held tile l */
-            j<4
+            l=j<4
             ?   W|=P=M[w(x,i,j++)],          /* read cell into P, advance j; W|=P parks 2048 on bit 11 */
                 x||printf(P?"%4d|":"    |",P),    /* x==0: draw it (blank if empty) */
                 /* cell non-empty (P!=0; the P? wrapper tests it once for both steps):
-                   - if a tile is held (l), emit it -- l+P&~P == (l+P)&~P is 2l when l==P (the carry lands
-                     in a higher bit ~P doesn't touch) else l (~P clears P's bit from l|P) -- and bump k
-                   - then set the held tile to P&~l: 0 if we just merged (l==P, they share the bit),
-                     else P (hold/carry) -- powers of 2, so ~l clears P's bit only when l==P
-                   P==0 falls to the :0 and leaves l untouched (carry the hold across a gap). */
-                P?l?M[t]=l+P&~P,k++:0,l=P&~l:0
-            :   (M[t]=l,++k,              /* reads done: flush held tile, bump k */
-                W&=~!l,l=0))            /* empty slot (l==0) -> clear "stuck" bit 0; reset l.
-                                           ~!l is ~1=...0 when l==0 (clears bit 0), ~0=-1 when
-                                           l!=0 (no-op) -- so only real empties unstick. */
+                   - if a tile is held (l), emit it -- l+P&~P == (l+P)&~P is 2l when l==P (the carry
+                     lands in a higher bit ~P doesn't touch) else l (~P clears P's bit from l|P), bump k.
+                   The branch then *evaluates to* the new held tile P&~l (0 if we just merged since l==P
+                   share the bit, else P to hold/carry), which the outer l= picks up.  P==0 takes the
+                   final :l, leaving l unchanged (carry the hold across a gap). */
+                P?l?M[t]=l+P&~P,k++:0,P&~l:l
+            :   (M[k++,t]=l,W&=~!l,0))   /* reads done: flush held l to M[t]; the comma in the subscript
+                                            M[k++,t] does the ++k as a side effect; W&=~!l marks the
+                                            empty slot; the bare 0 becomes l (hold reset) via l=. */
         t=x>1?w(x,i,k):X;                 /* write target: real rotated slot (move), or scratch X (dry run) */
 }
 
