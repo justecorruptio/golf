@@ -1,106 +1,87 @@
-/*
-    Golfed 2048 for the terminal (407 bytes).  Build & play:
-        cc 2048.c -o 2048 && ./2048
-    Arrow keys slide; reach 2048 to win, fill the board with no move to lose.
+/* 2048 in 398 bytes -- a complete, faithful terminal 2048.
+   Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
+   make a 2048 tile to win, fill the board with no move left to lose)
 
-    K&R implicit-int style: functions/globals omit `int`, and each function
-    declares its locals as extra (never-passed) parameters.
+   Style: K&R implicit int -- functions and globals omit `int`, and each
+   function declares its scratch locals as extra, never-passed parameters.
 
-    Globals
-        M[17] : 4x4 board in M[0..15] (row-major), plus M[16] -- a scratch
-                cell that dry-run slides write to instead of the board.
-        X     : 16 -- board size; also the wrap modulus (i%X) and the
-                scratch index M[X].
-        W     : status, rebuilt each turn from W=1.  Each read ORs the
-                cell value in (W|=P), so the tile bits pile into W; bit 11
-                is set iff a 2048 exists (won).  Tiles are powers of 2 >=2,
-                so P is always even (never 1) -- bit 0 is never touched by
-                W|=P, leaving it free as the "stuck" flag: it starts 1 and
-                is cleared (W&=~!l) whenever a slide leaves an empty slot,
-                so bit 0==1 means no move is possible.  The tail masks just
-                those two flags out of the value noise with W&2049 (bits 0
-                and 11): W&2049==0 means "still in play".
-        k     : three roles -- s()'s write cursor (left at 4 after each
-                call), the buffer read() drops the 3-byte arrow escape into,
-                and (0 only on the very first call) the "stty done" flag.
+   The board M[0..15] is the 4x4 grid in row-major order; M[16] is one
+   spare "scratch" cell. X (=16) triples as the board size, the index-wrap
+   modulus, and that scratch index.
 
-    Three tricks worth naming:
-      * Scratch target -- every write lands on M[t], with t = the real slot
-        for a move but t = X (scratch) for a dry run, so one routine both
-        slides for real and tests a slide without disturbing the board.
-      * The renderer rides the x==0 dry run: it prints each cell as it reads
-        it, so there is no separate draw loop.  That read order mirrors the
-        board left<->right, which the move's key map (k%985) undoes.
-      * w() rotates by recursing d times, and 4 rotations = identity, so it
-        self-reduces mod 4.  The move can therefore pass x in raw (no %4/%7)
-        as long as x is bounded -- hence k%985.
-      * Masked status -- W|=P lets every cell value pollute W, but the two
-        flags that matter live on isolated bits (0 = stuck, 11 = won), so
-        W&2049 reads exactly those two and discards bits 1..10.  That fold
-        is only legal because P is always even (so bit 0 stays clean).
-*/
+   Everything runs through one routine, s(x): it slides and merges every
+   line toward its start, in direction x. w() renames the cell indices by
+   a quarter-turn, so that one left-slide covers all four directions. Each
+   turn calls s three times:
+        s(W=1)    probe the vertical axis (and reset the flags in W)
+        s(0)      probe the horizontal axis -- and draw the board on the way
+        s(k%985)  the real move (only this arg exceeds 1, which is how s
+                  tells a real move from a dry-run probe)
+   A probe writes its slid tiles into the scratch cell instead of the
+   board, so the very same code can either move or just test a move.
+
+   W carries two status bits, rebuilt every turn. Each cell read does W|=P,
+   piling the tile values into W. Tiles are even, so bit 0 is never touched
+   and serves as a "stuck" flag: it starts set (W=1) and clears the instant
+   a slide opens a gap. Bit 11 lights iff some tile reached 2048. The
+   endgame test W&2049 selects exactly those two bits and ignores the rest. */
 
 M[17],X=16,W,k;
 
-/*
-    s(x): slide + merge every line.  x carries the direction (w uses x mod 4)
-    and, via x>1, whether to move for real (only the huge key value is >1;
-    the dry-run args 0 and 1 are not).  Each line compacts toward its start:
-    read cursor j scans the cells, write cursor k emits results, held tile l
-    waits to be placed or merged with the next equal tile.  The x==0 pass
-    also draws (per-cell print + per-row newline); the screen clear is done
-    once in main, just before this call.
-*/
+/* s(x): slide + merge every line in direction x.
+       i = current line     j = read cursor     k = write cursor
+       l = the held tile (awaiting a landing spot, or an equal to merge with)
+       t = the slot the next write lands in
+   Tiles are powers of two, which keeps the whole merge in bare bit-ops. */
 s(x,i,j,l,P,t){
-    for(i=4;i--;x||puts(""))      /* each of 4 lines (x==0: end with a newline) */
-        /* for(A;B;)C,D == for(A;B;D)C: the slide rides the update clause,
-           leaving the body as just the write-slot CSE t=w(x,i,k) */
-        /* The for-update clause is itself `l=<ternary>`, so each pass the held tile l
-           becomes whatever the taken branch evaluates to -- no separate `l=` write,
-           and the flush's value doubles as the hold-reset. */
-        for(j=k=l=0;k<4;          /* read cursor j, write cursor k, held tile l */
+    for(i=4;i--;x||puts(""))                  /* 4 lines; x==0 ends each with a \n */
+        for(j=k=l=0;k<4;
+            /* The loop's update clause is itself `l = <ternary>`: the held
+               tile just becomes whatever the taken branch evaluates to. */
             l=j<4
-            ?   W|=P=M[w(x,i,j++)],          /* read cell into P, advance j; W|=P parks 2048 on bit 11 */
-                x||printf(P?"%4d|":"    |",P),    /* x==0: draw it (blank if empty) */
-                /* cell non-empty (P!=0; the P? wrapper tests it once for both steps):
-                   - if a tile is held (l), emit it -- l+P&~P == (l+P)&~P is 2l when l==P (the carry
-                     lands in a higher bit ~P doesn't touch) else l (~P clears P's bit from l|P), bump k.
-                   The branch then *evaluates to* the new held tile P&~l (0 if we just merged since l==P
-                   share the bit, else P to hold/carry), which the outer l= picks up.  P==0 takes the
-                   final :l, leaving l unchanged (carry the hold across a gap). */
-                P?l?M[t]=l+P&~P,k++:0,P&~l:l
-            :   (M[k++,t]=l,W&=~!l,0))   /* reads done: flush held l to M[t]; the comma in the subscript
-                                            M[k++,t] does the ++k as a side effect; W&=~!l marks the
-                                            empty slot; the bare 0 becomes l (hold reset) via l=. */
-        t=x>1?w(x,i,k):X;                 /* write target: real rotated slot (move), or scratch X (dry run) */
+            ?   W|=P=M[w(x,i,j++)],            /* read a cell; W|=P lights bit 11 at 2048 */
+                x||printf("%4.0d|",P),        /* x==0: print it; %4.0d prints BLANKS
+                                                 for 0 -- precision 0 on a zero value
+                                                 emits no digits, so an empty cell is
+                                                 four spaces, not "   0" */
+                /* A tile (P!=0): if one is held, emit l+P&~P -- that is 2l on a
+                   merge (l==P), else just l -- and advance k. The branch then
+                   evaluates to the new hold P&~l (0 right after a merge, else P).
+                   An empty cell takes the final :l, holding on across the gap. */
+                P?l?M[k++,t]=l+P&~P:0,P&~l:l
+            :   (M[k++,t]=l,W&=~!l,0))         /* line done: store the hold (the comma
+                                                  in M[k++,t] slips the k++ in), record
+                                                  the gap in W, and 0 clears the hold */
+        t=x>1?w(x,i,k):X;                      /* move -> real slot; probe -> scratch X */
 }
 
-/*
-    w(d,i,j): linear index 4*i+j, rotated d quarter-turns -- each turn maps
-    (i,j)->(j,3-i).  Recurses d times, so only d mod 4 matters: one left-ward
-    slide covers all four directions, and the move can feed x in raw (k%985
-    is bounded -> ~984 self-calls at most, a few KB of stack, harmless).
-*/
-w(d,i,j){
-    return d ? w(d-1,j,3-i) : 4*i+j;
-}
+/* w(d,i,j): the flat index 4*i+j after d quarter-turns, each turn sending
+   (i,j) -> (j,3-i). Four turns return to the start, so only d mod 4 matters;
+   the move hands s() its raw key code and k%985 just bounds the recursion. */
+w(d,i,j){return d?w(d-1,j,3-i):4*i+j;}
 
-/* main(i): one turn per call, tail-recursing. rand() is unseeded, so every
-   run is identical. i is scratch (the spawn loop overwrites it). */
+/* main(): play one turn, then tail-recurse into the next. rand() is left
+   unseeded, so every game replays identically. */
 main(i){
-    /* stty setup hides in rand()'s ignored arg, gated by k (0 only on the
-       first call) so it runs once.  Then spawn: from a random start in
-       [16,31] scan down for an empty cell (i hits 0 if the board is full). */
+    /* Put the terminal in cbreak (per-key) mode exactly once -- the call hides
+       in rand()'s ignored argument, gated by k (0 only on the first turn).
+       Then spawn: from a random start, scan down for an empty cell (i reaches
+       0 only if the board is completely full). */
     for(i=X+rand(k||system("stty cbreak"))%X;M[--i%X]*i;);
-    i?M[i%X]=2<<rand()%2:0;       /* drop a 2 or a 4 into it */
 
-    /* clear, then rebuild W + redraw via two dry runs: s(W=1) resets W to 1
-       and does vertical; s(0) does horizontal (and the renderer rides it). */
-    puts("\e[H\e[J"),s(W=1),s(0);
+    /* Drop a 2 or a 4 -- and make this one write do two extra jobs.  The screen
+       clear is the value's rand() argument: rand ignores it, but the puts() fires
+       every turn.  And the scratch-place M[i?i%X:X]= sends a full board (i==0) to
+       the M[16] sink, so the value -- hence the clear -- ALWAYS runs (a guarded
+       i?...:0 would skip the clear on full-board turns).  (Cost: a full board now
+       spends one rand the guarded form skipped, shifting the spawn sequence but
+       not its uniform-cell / 50-50 distribution.) */
+    M[i?i%X:X]=2<<rand(puts("\e[H\e[J"))%2;
 
-    /* W&2049==0 = playable (bit 0 clear: a move exists; bit 11 clear: not won):
-       read the 3-byte arrow escape into k and move with s(k%985).  Else the
-       game is over -- print WIN (bit 11, W>>11) / LOSE and return to the OS.
-       (Reads the whole ESC '[' seq, so assumes CSI arrows, not SS3.) */
+    s(W=1),s(0);              /* probe both axes, redraw (screen already cleared above) */
+
+    /* W&2049==0 -> still in play: read the 3-byte arrow escape into k and
+       move with s(k%985). Otherwise the game is over -- print WIN if a 2048
+       exists (bit 11) else LOSE, and unwind back to the OS. */
     W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,3)|main(s(k%985));
 }
