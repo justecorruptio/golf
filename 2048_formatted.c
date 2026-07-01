@@ -1,11 +1,11 @@
 M[17],X=16,W,k;
 
 s(x,i,j,l,P,t){
-    for(i=4;i--;x||puts(""))
+    for(i=4;i--;)
         for(j=k=l=0;k<4;
             l=j<4
             ?   W|=P=M[w(x,i,j++)],
-                x||printf("%4.0d|",P),
+                x||printf("%4.0d|%c",P,j/4*10),
                 P?l?M[k++,t]=l+P&~P:0,P&~l:l
             :   (M[k++,t]=l,W&=~!l,0))
         t=x>1?w(x,i,k):X;

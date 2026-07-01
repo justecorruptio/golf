@@ -1,4 +1,4 @@
-/* 2048 in 398 bytes -- a complete, faithful terminal 2048.
+/* 2048 in 396 bytes -- a complete, faithful terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -34,16 +34,22 @@ M[17],X=16,W,k;
        t = the slot the next write lands in
    Tiles are powers of two, which keeps the whole merge in bare bit-ops. */
 s(x,i,j,l,P,t){
-    for(i=4;i--;x||puts(""))                  /* 4 lines; x==0 ends each with a \n */
+    for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
+                                                 the 4th cell's printf below, so the
+                                                 outer update clause is now empty */
         for(j=k=l=0;k<4;
             /* The loop's update clause is itself `l = <ternary>`: the held
                tile just becomes whatever the taken branch evaluates to. */
             l=j<4
             ?   W|=P=M[w(x,i,j++)],            /* read a cell; W|=P lights bit 11 at 2048 */
-                x||printf("%4.0d|",P),        /* x==0: print it; %4.0d prints BLANKS
-                                                 for 0 -- precision 0 on a zero value
-                                                 emits no digits, so an empty cell is
-                                                 four spaces, not "   0" */
+                x||printf("%4.0d|%c",P,j/4*10),/* x==0: print it; %4.0d prints BLANKS for
+                                                 0 (precision 0 on a zero emits no digits,
+                                                 so an empty cell is four spaces). The %c
+                                                 rides the row \n: after j++ the 4th cell
+                                                 has j==4 so j/4*10==10=='\n'; cells 0-2
+                                                 have j/4==0, emitting a NUL the terminal
+                                                 ignores (written to the stream, never
+                                                 shown). Costs -2 vs the old outer puts. */
                 /* A tile (P!=0): if one is held, emit l+P&~P -- that is 2l on a
                    merge (l==P), else just l -- and advance k. The branch then
                    evaluates to the new hold P&~l (0 right after a merge, else P).
