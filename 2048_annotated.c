@@ -10,9 +10,10 @@
    modulus, and that scratch index.
 
    Everything runs through one routine, s(x): it slides and merges every
-   line toward its start, in direction x. w() renames the cell indices by
-   a quarter-turn, so that one left-slide covers all four directions. Each
-   turn calls s three times:
+   line toward its start, in direction x. Rather than a rotation function,
+   the cell index is a direction-dependent stride  i*I + G*(j^m)  where the
+   two low bits of x pick the direction: bit 0 = axis (rows vs columns),
+   bit 1 = reflect (forward vs reverse). Each turn calls s three times:
         s(W=1)    probe the vertical axis (and reset the flags in W)
         s(0)      probe the horizontal axis -- and draw the board on the way
         s(k%985)  the real move (only this arg exceeds 1, which is how s
@@ -26,7 +27,7 @@
    a slide opens a gap. Bit 11 lights iff some tile reached 2048. The
    endgame test W&2049 selects exactly those two bits and ignores the rest. */
 
-M[17],X=16,W,k;
+M[17],X=16,W,k,I,G,m;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
@@ -34,6 +35,12 @@ M[17],X=16,W,k;
        t = the slot the next write lands in
    Tiles are powers of two, which keeps the whole merge in bare bit-ops. */
 s(x,i,j,l,P,t){
+    I=4-x%2*3;                                /* row coeff: 4 (horizontal) or 1 (vertical),
+                                                 chosen by x's bit 0 (the axis) */
+    G=5-I;                                    /* position coeff: the swap, 1 or 4 */
+    m=x&2?3:0;                                /* reflect mask from x's bit 1: XOR 3 sends
+                                                 pos 0<->3, 1<->2, so j^m = 3-j reverses a
+                                                 line for the Right / Up directions */
     for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
                                                  the 4th cell's printf below, so the
                                                  outer update clause is now empty */
@@ -41,7 +48,8 @@ s(x,i,j,l,P,t){
             /* The loop's update clause is itself `l = <ternary>`: the held
                tile just becomes whatever the taken branch evaluates to. */
             l=j<4
-            ?   W|=P=M[w(x,i,j++)],            /* read a cell; W|=P lights bit 11 at 2048 */
+            ?   W|=P=M[i*I+G*(j++^m)],        /* read cell (line i, reflected pos j);
+                                                 W|=P lights bit 11 at 2048 */
                 x||printf("%4.0d|%c",P,j/4*10),/* x==0: print it; %4.0d prints BLANKS for
                                                  0 (precision 0 on a zero emits no digits,
                                                  so an empty cell is four spaces). The %c
@@ -58,13 +66,9 @@ s(x,i,j,l,P,t){
             :   (M[k++,t]=l,W&=~!l,0))         /* line done: store the hold (the comma
                                                   in M[k++,t] slips the k++ in), record
                                                   the gap in W, and 0 clears the hold */
-        t=x>1?w(x,i,k):X;                      /* move -> real slot; probe -> scratch X */
+        t=x>1?i*I+G*(k^m):X;                  /* move -> real slot (write cursor k, same
+                                                  reflected stride); probe -> scratch X */
 }
-
-/* w(d,i,j): the flat index 4*i+j after d quarter-turns, each turn sending
-   (i,j) -> (j,3-i). Four turns return to the start, so only d mod 4 matters;
-   the move hands s() its raw key code and k%985 just bounds the recursion. */
-w(d,i,j){return d?w(d-1,j,3-i):4*i+j;}
 
 /* main(): play one turn, then tail-recurse into the next. rand() is left
    unseeded, so every game replays identically. */

@@ -1,17 +1,18 @@
-M[17],X=16,W,k;
+M[17],X=16,W,k,I,G,m;
 
 s(x,i,j,l,P,t){
+    I=4-x%2*3;
+    G=5-I;
+    m=x&2?3:0;
     for(i=4;i--;)
         for(j=k=l=0;k<4;
             l=j<4
-            ?   W|=P=M[w(x,i,j++)],
+            ?   W|=P=M[i*I+G*(j++^m)],
                 x||printf("%4.0d|%c",P,j/4*10),
                 P?l?M[k++,t]=l+P&~P:0,P&~l:l
             :   (M[k++,t]=l,W&=~!l,0))
-        t=x>1?w(x,i,k):X;
+        t=x>1?i*I+G*(k^m):X;
 }
-
-w(d,i,j){return d?w(d-1,j,3-i):4*i+j;}
 
 main(i){
     for(i=X+rand(k||system("stty cbreak"))%X;M[--i%X]*i;);
