@@ -1,10 +1,10 @@
-M[17],X=16,W,k,I,G;
+M[17],X=16,W,k,I,G,i,j,l,P,t;
 
-s(x,i,j,l,P,t){
+s(x){
     I=x%11;
     G=5-I;
     for(i=4;i--;)
-        for(j=k=l=0;k<4;
+        for(j=k=0;k<4;
             l=j<4
             ?   W|=P=M[i*I+G*(j++^x%7)],
                 x&64&&printf("%4.0d|%c",P,j/4*10),
@@ -13,7 +13,7 @@ s(x,i,j,l,P,t){
         t=x&1?i*I+G*(k^x%7):X;
 }
 
-main(i){
+main(){
     for(i=X+rand(k||system("stty cbreak"))%X;M[--i%X]*i;);
 
     M[i?i%X:X]=2<<rand(puts("\e[H\e[J"))%2;

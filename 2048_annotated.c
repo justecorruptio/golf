@@ -1,9 +1,10 @@
-/* 2048 in 392 bytes -- a complete, faithful terminal 2048.
+/* 2048 in 389 bytes -- a complete, faithful terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
-   Style: K&R implicit int -- functions and globals omit `int`, and each
-   function declares its scratch locals as extra, never-passed parameters.
+   Style: K&R implicit int. s()'s scratch variables (i,j,l,P,t) are GLOBALS
+   rather than params -- byte-neutral vs a long param list, and it lets one
+   of them, l, persist its value between calls (see the loop note below).
 
    The board M[0..15] is the 4x4 grid in row-major order; M[16] is one
    spare "scratch" cell. X (=16) triples as the board size, the index-wrap
@@ -29,22 +30,24 @@
    set and clears the instant a slide opens a gap. Bit 11 lights iff some
    tile reached 2048. The endgame test W&2049 selects those two bits. */
 
-M[17],X=16,W,k,I,G;
+M[17],X=16,W,k,I,G,i,j,l,P,t;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
        l = the held tile (awaiting a landing spot, or an equal to merge with)
        t = the slot the next write lands in
    Tiles are powers of two, which keeps the whole merge in bare bit-ops. */
-s(x,i,j,l,P,t){
+s(x){
     I=x%11;                                   /* row coeff: 1 (vertical) or 4 (horizontal);
                                                  x%7 (used inline below) is the reflect mask */
     G=5-I;                                    /* position coeff: the swap, 4 or 1 */
     for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
                                                  the 4th cell's printf below */
-        for(j=k=l=0;k<4;
-            /* The loop's update clause is itself `l = <ternary>`: the held
-               tile just becomes whatever the taken branch evaluates to. */
+        /* Inner loop resets only j,k -- NOT l. Every line ends with l==0 (the
+           final flush stores the last held tile and clears l), and since l is
+           a global that 0 carries into the next line, so re-zeroing it is
+           redundant. The first call inherits l==0 from the zero-init globals. */
+        for(j=k=0;k<4;
             l=j<4
             ?   W|=P=M[i*I+G*(j++^x%7)],      /* read cell (line i, reflected pos j^x%7);
                                                  W|=P lights bit 11 at 2048 */
@@ -65,8 +68,16 @@ s(x,i,j,l,P,t){
 }
 
 /* main(): play one turn, then tail-recurse into the next. rand() is left
-   unseeded, so every game replays identically. */
-main(i){
+   unseeded, so every game replays identically. k is dual-role -- s()'s write
+   cursor above, and here the read buffer for the 3-byte arrow escape (it
+   ends each s() at 4, a clean high byte, so the read lands correctly).
+   main takes no parameter: it borrows the GLOBAL i for its spawn scan --
+   safe because every use of i below happens before the s() calls clobber
+   it, and each call re-initializes i before reading it (so neither argc on
+   the first entry nor the -1 that s() leaves behind is ever seen). The
+   recursive call still passes s(k%162) as an "argument" purely to sequence
+   the move before re-entry; its value lands nowhere. */
+main(){
     /* Put the terminal in cbreak (per-key) mode exactly once -- the call hides
        in rand()'s ignored argument, gated by k (0 only on the first turn).
        Then spawn: from a random start, scan down for an empty cell (i reaches
