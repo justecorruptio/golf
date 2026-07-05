@@ -1,8 +1,8 @@
-/* 2048 in 389 bytes -- a complete, faithful terminal 2048.
+/* 2048 in 382 bytes -- a complete, faithful terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
-   Style: K&R implicit int. s()'s scratch variables (i,j,l,P,t) are GLOBALS
+   Style: K&R implicit int. s()'s scratch variables (i,j,l,P,t,B) are GLOBALS
    rather than params -- byte-neutral vs a long param list, and it lets one
    of them, l, persist its value between calls (see the loop note below).
 
@@ -11,10 +11,17 @@
    modulus, and that scratch index.
 
    Everything runs through one routine, s(x): it slides and merges every
-   line toward its start, in direction x. The cell index is a direction-
-   dependent stride  i*I + G*(j ^ x%7)  where the argument x is decoded by
-   two mods: I = x%11 is the row coefficient (1 vertical / 4 horizontal),
-   and x%7 (in {0,3}) is the reflect mask that flips a line for Right/Up.
+   line toward its start, in direction x. Conceptually the cell index is
+   the stride  i*I + G*(c ^ m)  -- I = x%11 is the row coefficient
+   (1 vertical / 4 horizontal), G = 5-I its swap, and m = x%7 (in {0,3})
+   the reflect mask that flips a line for Right/Up.  But the two terms
+   never share bits (one is the 4s pair, the other the 1s pair), so + is
+   XOR -- and since G is 1 or 4 (a shift), G*(c^m) = G*c ^ G*m.  The whole
+   line-constant part folds into one accumulator computed per line:
+        B = i*I ^ G*m        (written  x%11*i ^ x%7*G)
+   and a cell is just  M[B ^ G*cursor].  That XOR split is what lets the
+   index be shared by the read and write sites at all -- with +, the
+   reflect term is welded to the cursor and nothing can be hoisted.
    Each turn calls s three times:
         s(56)   probe the vertical axis   (a dry-run sentinel: I=1, no reflect)
         s(70)   probe the horizontal axis -- and draw the board on the way
@@ -24,23 +31,24 @@
    are dry-runs, writing to the scratch cell instead of the board. The one
    even value carrying bit 6 (70) is the pass that renders (x&64).
 
-   W carries two status bits, rebuilt every turn (reset by the standalone
-   W=1). Each cell read does W|=P, piling the tile values into W. Tiles are
+   W carries two status bits, rebuilt every turn (the reset rides the stty
+   gate -- see main). Each cell read does W|=P, piling tile values into W. Tiles are
    even, so bit 0 is never touched and serves as a "stuck" flag: it starts
    set and clears the instant a slide opens a gap. Bit 11 lights iff some
    tile reached 2048. The endgame test W&2049 selects those two bits. */
 
-M[17],X=16,W,k,I,G,i,j,l,P,t;
+M[17],X=16,W,k,G,i,j,l,P,t,B;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
        l = the held tile (awaiting a landing spot, or an equal to merge with)
+       B = this line's index base (row term XOR reflect term)
        t = the slot the next write lands in
    Tiles are powers of two, which keeps the whole merge in bare bit-ops. */
 s(x){
-    I=x%11;                                   /* row coeff: 1 (vertical) or 4 (horizontal);
-                                                 x%7 (used inline below) is the reflect mask */
-    G=5-I;                                    /* position coeff: the swap, 4 or 1 */
+    G=5-x%11;                                 /* position coeff: 4 (vertical) or 1
+                                                 (horizontal); the row coeff x%11 and
+                                                 reflect mask x%7 are used inline in B */
     for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
                                                  the 4th cell's printf below */
         /* Inner loop resets only j,k -- NOT l. Every line ends with l==0 (the
@@ -49,7 +57,7 @@ s(x){
            redundant. The first call inherits l==0 from the zero-init globals. */
         for(j=k=0;k<4;
             l=j<4
-            ?   W|=P=M[i*I+G*(j++^x%7)],      /* read cell (line i, reflected pos j^x%7);
+            ?   W|=P=M[B^G*j++],              /* read cell: line base XOR G*cursor;
                                                  W|=P lights bit 11 at 2048 */
                 x&64&&printf("%4.0d|%c",P,j/4*10),/* only the x=70 pass renders (bit 6 is
                                                  unique to 70). %4.0d prints BLANKS for 0;
@@ -63,7 +71,9 @@ s(x){
             :   (M[k++,t]=l,W&=~!l,0))         /* line done: store the hold (the comma
                                                   in M[k++,t] slips the k++ in), record
                                                   the gap in W, and 0 clears the hold */
-        t=x&1?i*I+G*(k^x%7):X;                /* real move (x odd) -> real slot;
+        /* Loop body, run before each read: refresh the line base B (row term
+           x%11*i XOR reflect term x%7*G) and aim the write cursor. */
+        B=x%11*i^x%7*G,t=x&1?B^G*k:X;         /* real move (x odd) -> real slot;
                                                   dry-run sentinel (even) -> scratch X */
 }
 
@@ -80,9 +90,15 @@ s(x){
 main(){
     /* Put the terminal in cbreak (per-key) mode exactly once -- the call hides
        in rand()'s ignored argument, gated by k (0 only on the first turn).
+       The gate expression k||system(...) is a logical OR, so its value is
+       exactly 0 or 1 -- and W= captures it as the per-turn flag reset: W=1
+       on every turn after the first (k holds the last key), sitting exactly
+       between the move and the probes.  The first turn gets W=0 instead,
+       which is unobservable: one tile on the board can be neither stuck nor
+       a win, so bit 0's start value never reaches the endgame test.
        Then spawn: from a random start, scan down for an empty cell (i reaches
        0 only if the board is completely full). */
-    for(i=X+rand(k||system("stty cbreak"))%X;M[--i%X]*i;);
+    for(i=X+rand(W=k||system("stty cbreak"))%X;M[--i%X]*i;);
 
     /* Drop a 2 or a 4 -- and make this one write do two extra jobs.  The screen
        clear is the value's rand() argument: rand ignores it, but the puts() fires
@@ -90,9 +106,9 @@ main(){
        the M[16] sink, so the value -- hence the clear -- ALWAYS runs. */
     M[i?i%X:X]=2<<rand(puts("\e[H\e[J"))%2;
 
-    /* Reset the flags, then probe both axes with the dry-run sentinels; the
-       horizontal one (70) also redraws (screen already cleared above). */
-    W=1,s(56),s(70);
+    /* Probe both axes with the dry-run sentinels (W was already reset above);
+       the horizontal one (70) also redraws (screen already cleared above). */
+    s(56),s(70);
 
     /* W&2049==0 -> still in play: read the 3-byte arrow escape into k and
        move with s(k%162). Otherwise the game is over -- print WIN if a 2048
