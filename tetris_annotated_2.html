@@ -1,31 +1,37 @@
 <body onload="
 /*
-    Bare-bones golfed Tetris, v2. (348 bytes)
+    Bare-bones golfed Tetris, v3. (335 bytes)
 
     Golfing done by justecorruptio, veu, mmastrac, aemkei, p01
 
     This version replaces the string lookup table and inner
-    rotation loop with a function v() that uses magic numbers
-    to compute rotated block coordinates directly. It also
-    stores the event object in the save array, eliminating the
-    need for ||e in the settle check.
+    rotation loop of the original with a function v() that
+    computes rotated block coordinates directly from magic
+    numbers. The rotation flip uses a constant axis for all
+    pieces, so it folds into the bit extraction as an XOR and
+    v() needs no temporary variable, no ternary, and returns
+    integers only. The event object is stored in the save
+    array, eliminating the need for ||e in the settle check.
 
     Use body's onload attribute to trigger script execution.
     This is shorter than using <script> tags because the
     browser wraps the attribute code in a function with
-    with(document){with(body){}} scope chain. Arrow functions
-    defined within capture this scope, which is how onkeyup
-    resolves to body.onkeyup at definition time.
+    with(document){with(body){}} scope chain, which is how
+    the bare onkeyup assignment resolves to body.onkeyup at
+    definition time.
 
     Variables
     ---------
-    v: function(c) that returns a rotated block coordinate
-    c: parameter to v, selects x vs y coord and rotation
-    h: temporary inside v, raw coordinate from magic number
+    v: function(c), returns a block coordinate (integer 0..3)
+    c: parameter to v; c%2 selects which magic number (which
+       coordinate axis), c&2 selects raw vs flipped
     B: tetris board, array of row bitfields
     C: temporary copy of board with current piece drawn on
     x, y: position of current falling piece (spawn at 4, 4)
-    t: integer [0, 6], current tetromino piece type
+    t: integer [2, 8], current piece's digit stride: the
+       piece number r%7 plus 2. The +2 is folded in at
+       settle time because v() is the only consumer of t
+       and only ever needs the stride (see v() section)
     r: rotation counter, starts at 210, only increases
     S: score (total rows cleared)
     e: keyup event object, or undefined for timer ticks
@@ -55,57 +61,76 @@
 /*
     The v() function: magic number piece encoding.
 
-    Tetromino pieces are encoded in two magic numbers:
-        37461 and 74164 (= 37461 + 36703)
+    Tetromino block coordinates are packed, two bits each,
+    into two magic numbers:
+        38344369  and  38344369 - 26972 = 38317397
 
-    Each magic number packs 2-bit coordinate values (0-3)
-    at specific bit positions. One number encodes all the
-    x-coordinates, the other all the y-coordinates.
+    One number holds one coordinate axis of every block, the
+    other holds the perpendicular axis. c%2 selects between
+    them. Their difference is small (26972) because most of
+    their 2-bit digits coincide.
 
-    c%2 selects which magic number to use:
-        c even: 37461+0 = 37461
-        c odd:  37461+36703 = 74164
+    Digit layout: t holds the piece's stride (r%7 + 2, so
+    t is in [2,8]; the +2 is precomputed at the settle site,
+    which is 2 bytes cheaper than writing t+2 here). Block
+    i%4 = j reads the two bits starting at position j*t:
 
-    The shift formula i%4*2+(i&2)*t extracts the right
-    2-bit value for block i of piece t:
-        i%4=0: shift=0  (shared block, same for all pieces)
-        i%4=1: shift=2  (shared block, same for all pieces)
-        i%4=2: shift=4+2t (unique block, varies by piece)
-        i%4=3: shift=6+2t (unique block, varies by piece)
+        block 0: bits  1-0            (same for every piece)
+        block 1: bits  t+1 .. t
+        block 2: bits 2t+1 .. 2t
+        block 3: bits 3t+1 .. 3t
 
-    Chain overlap trick: the shift for block 3 of piece t
-    equals the shift for block 2 of piece t+1:
-        6+2t = 4+2(t+1)
-    So the 4th block of each piece shares its bit position
-    with the 3rd block of the next piece, compressing the
-    encoding.
+    Block 0 of all seven pieces shares the single digit at
+    bits 1-0 (value 1 in both magics: the cell (1,1)). The
+    other blocks fan out at the piece-dependent stride, so
+    different pieces' digits interleave, and because the
+    offsets are not multiples of 2, digits may straddle and
+    share bits wherever the packed values agree. This overlap
+    is what compresses 7 pieces x 4 blocks x 2 axes into two
+    26-bit numbers.
 
-    c&2 controls rotation. Since r >= 210, both r&2 and
-    (r+1)&2 are always nonzero, so the rotation formula
-    3-t/5-h is always applied. This flips the coordinate
-    around a piece-dependent axis:
-        t=0 (I piece): axis at 3.0 (4-wide rotation)
-        t=1-5 (J,L,S,T,Z): axis near 2.4-2.0
-        t=6 (O piece): axis at 1.8 (effectively invariant)
+    Piece order by stride t=2..8: I,S,J,L,O,T,Z. Pieces are
+    picked by r%7 with r growing pseudo-randomly, so the
+    order only determines which piece follows which.
 
-    Rotation is achieved by the interplay of c%2 (which
-    swaps the x/y magic numbers, acting as a transpose)
-    and the flip formula. Different r values cycle through
-    all 4 rotation states.
+    Rotation: a 90-degree rotation is a transpose plus a
+    flip. Both are baked into how v() is called:
 
-    Note: v() can return non-integer values (e.g., 2.8 from
-    3-t/5-h when t is not a multiple of 5). The ~ operator
-    used later (in ~v(r)) performs int32 truncation, which
-    is load-bearing for correct collision detection.
+    Transpose: v is called as v(r) for the row coordinate
+    and v(r+1) for the column. Incrementing r (rotating)
+    changes the parity of BOTH calls, swapping which magic
+    number supplies rows vs columns.
+
+    Flip: c&2 is 0 or 2, so (c&2&&3) evaluates to 0 or 3
+    (one byte shorter than (c&2)*1.5). XORing a 2-bit value
+    with 3 maps h to 3-h: a reflection of the 4x4 coordinate
+    box around its center line at 1.5. The same constant
+    axis serves every piece; the block placements were
+    chosen so each piece's effective rotation axis stays
+    within half a cell of its center (the O piece sits
+    exactly centered, so rotating it does not move it).
+
+    As r counts up, r mod 4 cycles through the four
+    (transpose, flip) combinations = the 4 rotation states:
+
+        r%4=0: rows raw magic A,     cols raw magic B
+        r%4=1: rows raw magic B,     cols flipped magic A
+        r%4=2: rows flipped magic A, cols flipped magic B
+        r%4=3: rows flipped magic B, cols raw magic A
+
+    Precedence: + and * bind before >>, which binds before
+    &, which binds before ^, so the whole expression parses
+    as ((M >> shift) & 3) ^ flip without extra parentheses.
+
+    Unlike earlier versions (whose per-piece axis 3-t/5
+    could yield fractional values needing truncation by ~
+    and <<), v() here returns pure integers.
 */
-v=c=>(
-    h = 37461 + c%2*36703  // Select magic number by parity
-        >> i%4*2 + (i&2)*t  // Right-shift to the block's position
-        & 3,                // Mask to 2 bits: raw coordinate h
-    c&2                     // Always true for r >= 210
-        ? 3-t/5-h           // Apply rotation: flip around axis
-        : h                 // (dead branch for normal gameplay)
-);
+v = c =>
+    38344369 - c%2*26972  // select magic number by parity of c
+    >> i%4*t              // shift block i%4's digit into place
+    & 3                   // mask to 2 bits: raw coordinate
+    ^ (c&2&&3);           // flip: XOR with 3 when c&2 is set
 
 /*
     Initialize C to [0], and set S (score) and u (saved state)
@@ -136,9 +161,10 @@ setInterval(onkeyup=e=>{
     For full rows: !++S increments score and returns false
     (filter discards the row).
 
-    The comma expression t=r%7 selects the next piece type
-    based on the rotation counter, producing pseudo-random
-    piece selection since r grows by 4 each piece plus any
+    The comma expression t=r%7+2 selects the next piece
+    (as its digit stride, see the v() section) based on the
+    rotation counter, producing pseudo-random piece
+    selection since r grows by 4 each piece plus any
     rotation key presses.
 
     Then C=[...B] duplicates the board into a working copy.
@@ -151,7 +177,7 @@ setInterval(onkeyup=e=>{
     Storing e in the save array (see below) lets us simplify
     u||e to just u, and the whole thing folds into one line.
 */
-C=[...B=u?B:C.filter(_=>_-2046?x=y=4:!++S,t=r%7)];
+C=[...B=u?B:C.filter(_=>_-2046?x=y=4:!++S,t=r%7+2)];
 
 /*
     Save the current piece state for potential undo.
@@ -217,9 +243,12 @@ for(
     UPDATE clause: collision detection, rendering, or restore.
 
     First, compute the board row index for this block:
-        v(r) returns the y-coordinate of block i%4
-        ~v(r) truncates to int32 and inverts (~2 = -3)
-        b = ~v(r) + 26 - y maps to the board row index
+        v(r) returns the row coordinate of block i%4
+        b = 25 - v(r) - y maps it to the board row index.
+        (Earlier versions wrote this as ~v(r)+26-y because
+        their v() could return fractions and ~ doubled as
+        the truncation; with v() integer-only the direct
+        subtraction is a byte shorter.)
 
     Then check for collision:
         ~B[b] inverts the board row bitfield
@@ -252,7 +281,7 @@ for(
         r becomes r+4 (see save explanation above).
         u becomes e (see save explanation above).
 */
-    ~B[b=~v(r)+26-y]-2049 & k && ~b  // Collision check
+    ~B[b=25-v(r)-y]-2049 & k && ~b  // Collision check
     ?
         i<T?  // No collision. Render mode?
 
@@ -301,11 +330,12 @@ for(
     BODY clause: compute the column bitmask k for the
     current block.
 
-    v(r+1) returns the x-coordinate of block i%4.
-    r+1 has opposite parity from r, so it uses the other
-    magic number (x-coords vs y-coords). Adding the piece's
-    x position gives the absolute column. 1<< converts to
-    a single-bit mask for the bitfield operations.
+    v(r+1) returns the column coordinate of block i%4.
+    r+1 has opposite parity from r, so it reads the other
+    magic number (the transpose half of the rotation
+    mechanism). Adding the piece's x position gives the
+    absolute column. 1<< converts to a single-bit mask
+    for the bitfield operations.
 
     The body executes BEFORE the update clause, so k is
     ready for the collision check and C[b]|=k operations.
