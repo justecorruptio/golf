@@ -1,4 +1,4 @@
-/* 2048 in 373 bytes -- a complete terminal 2048.
+/* 2048 in 370 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -63,8 +63,11 @@ M[99],W,k,G,i,j,l,P,B;
    Tiles are powers of two, which keeps the whole merge in bare bit-ops --
    and makes ONE write expression serve both emit and flush:  l+P&~P  is
    2l on a merge (l==P), l on a block, and degenerates to exactly l when
-   P is 0 or 1 (l is always even).  So the flush arm just forces P=1 and
-   the single write M[...]=l+P&~P covers every store the engine makes. */
+   P is 0 or 1 (l is always even).  The flush arm forces P=1 -- and that
+   1, the only odd P in the program, then doubles as the PHASE FLAG: the
+   hold update  P&~l&~1  is P&~l untouched for even tiles but exactly 0
+   at a flush, so the second half of the loop needs no j-test at all.
+   Bit 0's fourth job. */
 s(x){
     G=5-x%11;                                 /* position coeff: 4 (vertical) or 1
                                                  (horizontal); the row coeff x%11 and
@@ -72,34 +75,36 @@ s(x){
     for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
                                                  the 4th cell's printf below */
         /* Inner loop resets only j,k -- NOT l. Every line ends with l==0 (the
-           final flush stores the last held tile and clears l), and since l is
-           a global that 0 carries into the next line, so re-zeroing it is
-           redundant. The first call inherits l==0 from the zero-init globals. */
+           final flush zeroes it via the &~1 mask), and since l is a global
+           that 0 carries into the next line, so re-zeroing it is redundant.
+           The first call inherits l==0 from the zero-init globals. */
         for(j=k=0;k<4;
             /* First expression: decide whether to write.
                Reads (j<4): fetch the cell, maybe print it, and write iff a
                tile was read while one is held (P*l != 0) -- the emit.
-               Flushes (j>3): force P=1 (see above) and always write. */
+               Flushes (j>3): record the compaction in W's bit 0 (l==0 here
+               means this line compacted -- gap or merge -- so the board is
+               movable), force P=1, and always write. */
             (j<4
-            ?   W|=P=M[B^G*j],                /* read cell; W|=P lights bit 11 at 2048 */
-                x&64&&printf("%4.0d|%c",P,j/3*10),/* only the x=70 pass renders (bit 6 is
+            ?   P=M[B^G*j++],                 /* read cell (j++ comma-sequenced
+                                                 before the printf args below) */
+                x&64&&printf("%4.0d|%c",P,j/4*10),/* only the x=70 pass renders (bit 6 is
                                                  unique to 70). %4.0d prints BLANKS for 0;
-                                                 the %c rides the row \n -- j is the
-                                                 pre-increment index here, so the 4th
-                                                 cell is j==3 and j/3*10 is the newline
-                                                 (a NUL the terminal ignores before). */
+                                                 the %c rides the row \n (j/4*10==10 at the
+                                                 4th cell, a NUL the terminal ignores before). */
                 P*l
-            :   (P=1)
+            :   (W&=~!l,P=1)
             /* The one write site.  k++ rides the index; the +!(x&1)*x lifts
                dry-run writes into scratch (M[56..79]) -- the sentinel is its
                own sink offset -- while real moves (x odd) add 0 and write the
                board slot B^G*k. */
             )?M[B^G*k+++!(x&1)*x]=l+P&~P:0,
-            /* Second expression: advance the read cursor and update the hold.
+            /* Second expression: the new hold, phase-free (see header).
                Reads: P&~l is 0 right after a merge, else P; an empty cell
-               (P==0) keeps l. Flushes: record the compaction in W's bit 0
-               and clear the hold. */
-            l=j++>3?W&=~!l,0:P?P&~l:l
+               (P==0) keeps l.  Flushes: P==1 makes the whole mask 0.
+               W|= accumulates every held value -- the win bit rides here
+               (tile bits only: every branch value is even or 0). */
+            W|=l=P?P&~l&~1:l
         )B=x%11*i^x%7*G;                      /* line base, refreshed before each read */
 }
 

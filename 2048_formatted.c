@@ -5,12 +5,12 @@ s(x){
     for(i=4;i--;)
         for(j=k=0;k<4;
             (j<4
-            ?   W|=P=M[B^G*j],
-                x&64&&printf("%4.0d|%c",P,j/3*10),
+            ?   W|=P=M[B^G*j++],
+                x&64&&printf("%4.0d|%c",P,j/4*10),
                 P*l
-            :   (P=1)
+            :   (W&=~!l,P=1)
             )?M[B^G*k+++!(x&1)*x]=l+P&~P:0,
-            l=j++>3?W&=~!l,0:P?P&~l:l
+            l=P?P&~l&~1:l
         )B=x%11*i^x%7*G;
 }
 
