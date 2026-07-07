@@ -1,4 +1,4 @@
-/* 2048 in 382 bytes -- a complete, faithful terminal 2048.
+/* 2048 in 381 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -7,7 +7,7 @@
    of them, l, persist its value between calls (see the loop note below).
 
    The board M[0..15] is the 4x4 grid in row-major order; M[16] is one
-   spare "scratch" cell. X (=16) triples as the board size, the index-wrap
+   spare "scratch" cell. X (=16) triples as the board size, the dart
    modulus, and that scratch index.
 
    Everything runs through one routine, s(x): it slides and merges every
@@ -19,9 +19,7 @@
    XOR -- and since G is 1 or 4 (a shift), G*(c^m) = G*c ^ G*m.  The whole
    line-constant part folds into one accumulator computed per line:
         B = i*I ^ G*m        (written  x%11*i ^ x%7*G)
-   and a cell is just  M[B ^ G*cursor].  That XOR split is what lets the
-   index be shared by the read and write sites at all -- with +, the
-   reflect term is welded to the cursor and nothing can be hoisted.
+   and a cell is just  M[B ^ G*cursor].
    Each turn calls s three times:
         s(56)   probe the vertical axis   (a dry-run sentinel: I=1, no reflect)
         s(70)   probe the horizontal axis -- and draw the board on the way
@@ -31,11 +29,24 @@
    are dry-runs, writing to the scratch cell instead of the board. The one
    even value carrying bit 6 (70) is the pass that renders (x&64).
 
-   W carries two status bits, rebuilt every turn (the reset rides the stty
-   gate -- see main). Each cell read does W|=P, piling tile values into W. Tiles are
-   even, so bit 0 is never touched and serves as a "stuck" flag: it starts
-   set and clears the instant a slide opens a gap. Bit 11 lights iff some
-   tile reached 2048. The endgame test W&2049 selects those two bits. */
+   SPAWN: a dart.  Each turn throws one uniform-random dart i=rand()%16;
+   an empty cell catches it and receives the new tile, an occupied cell
+   sends main into a tail-recursive retry (a fresh dart, no key consumed,
+   so exactly one tile still appears per keypress).  The retry needs a
+   certificate that an empty cell exists, or a full board would loop
+   forever -- that certificate is W's bit 0, double-armed (see below).
+
+   W carries two status bits, each rebuilt in its own window every turn.
+   Cell reads do W|=P, piling tile values into W. Tiles are even, so bit 0
+   is never touched by that and works as a flag armed twice per turn:
+     arm 1  W=3 rides the read() byte count -- armed just before the MOVE,
+            whose flushes clear it (W&=~!l) iff a line compacts, i.e. iff
+            the board has an empty cell afterward.  So at dart time,
+            bit 0 == 0 certifies the retry loop terminates.
+     arm 2  W=k||system(...) re-arms it after the spawn for the PROBES;
+            if neither probe finds a gap or merge, bit 0 survives = stuck.
+   Bit 11 lights iff some tile reached 2048 (probes re-pile the values).
+   The endgame test W&2049 selects the stuck and win bits together. */
 
 M[17],X=16,W,k,G,i,j,l,P,t,B;
 
@@ -70,48 +81,39 @@ s(x){
                 P?l?M[k++,t]=l+P&~P:0,P&~l:l
             :   (M[k++,t]=l,W&=~!l,0))         /* line done: store the hold (the comma
                                                   in M[k++,t] slips the k++ in), record
-                                                  the gap in W, and 0 clears the hold */
+                                                  the compaction in W's bit 0, and 0
+                                                  clears the hold */
         /* Loop body, run before each read: refresh the line base B (row term
            x%11*i XOR reflect term x%7*G) and aim the write cursor. */
         B=x%11*i^x%7*G,t=x&1?B^G*k:X;         /* real move (x odd) -> real slot;
                                                   dry-run sentinel (even) -> scratch X */
 }
 
-/* main(): play one turn, then tail-recurse into the next. rand() is left
-   unseeded, so every game replays identically. k is dual-role -- s()'s write
-   cursor above, and here the read buffer for the 3-byte arrow escape (it
-   ends each s() at 4, a clean high byte, so the read lands correctly).
-   main takes no parameter: it borrows the GLOBAL i for its spawn scan --
-   safe because every use of i below happens before the s() calls clobber
-   it, and each call re-initializes i before reading it (so neither argc on
-   the first entry nor the -1 that s() leaves behind is ever seen). The
-   recursive call still passes s(k%162) as an "argument" purely to sequence
-   the move before re-entry; its value lands nowhere. */
+/* main(): one turn per entry, tail-recursing into the next -- and doubling
+   as the spawn's retry loop.  rand() is left unseeded, so every game
+   replays identically.  k is dual-role: s()'s write cursor above, and the
+   read buffer for the 3-byte arrow escape below. */
 main(){
-    /* Put the terminal in cbreak (per-key) mode exactly once -- the call hides
-       in rand()'s ignored argument, gated by k (0 only on the first turn).
-       The gate expression k||system(...) is a logical OR, so its value is
-       exactly 0 or 1 -- and W= captures it as the per-turn flag reset: W=1
-       on every turn after the first (k holds the last key), sitting exactly
-       between the move and the probes.  The first turn gets W=0 instead,
-       which is unobservable: one tile on the board can be neither stuck nor
-       a win, so bit 0's start value never reaches the endgame test.
-       Then spawn: from a random start, scan down for an empty cell (i reaches
-       0 only if the board is completely full). */
-    for(i=X+rand(W=k||system("stty cbreak"))%X;M[--i%X]*i;);
-
-    /* Drop a 2 or a 4 -- and make this one write do two extra jobs.  The screen
-       clear is the value's rand() argument: rand ignores it, but the puts() fires
-       every turn.  And the scratch-place M[i?i%X:X]= sends a full board (i==0) to
-       the M[16] sink, so the value -- hence the clear -- ALWAYS runs. */
-    M[i?i%X:X]=2<<rand(puts("\e[H\e[J"))%2;
-
-    /* Probe both axes with the dry-run sentinels (W was already reset above);
-       the horizontal one (70) also redraws (screen already cleared above). */
-    s(56),s(70);
-
-    /* W&2049==0 -> still in play: read the 3-byte arrow escape into k and
-       move with s(k%162). Otherwise the game is over -- print WIN if a 2048
-       exists (bit 11) else LOSE, and unwind back to the OS. */
-    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,3)|main(s(k%162));
+    /* The dart.  Bit 0 of W set means the last move proved nothing compacts
+       (board full): don't retry, and let the place below route to the sink.
+       Bitwise | on purpose -- no short-circuit, so i is always assigned. */
+    W&1|!M[i=rand()%X]
+    ?   /* The dart landed (or the board is full): play the turn.  This whole
+           chain sits in the ternary's MIDDLE, which the C grammar lets hold
+           top-level commas -- the else-branch could not.
+           First the spawn: a 2 or 4 (50/50) into the dart cell, or into the
+           M[16] sink on a full board.  The screen-clear rides the value's
+           rand() argument: rand ignores it, but the puts() fires every turn. */
+        M[W&1?X:i]=2<<rand(puts("\e[H\e[J"))%2,
+        /* Re-arm bit 0 for the probes (arm 2), and put the terminal in cbreak
+           (per-key) mode exactly once -- k is 0 only on the very first turn,
+           and || short-circuits the system() call away after that. */
+        W=k||system("stty cbreak"),
+        s(56),s(70),                          /* probe both axes; s(70) redraws */
+        /* Game over?  W&2049 reads stuck+win together.  Otherwise read the
+           next arrow into k -- and W=3 rides the byte count (arm 1): bit 0
+           set just before the move, so the move's flushes can prove an empty
+           cell exists for the next dart.  Bit 1 is junk range, harmless. */
+        W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%162))
+    :   main();                               /* dart bounced off a tile: re-throw */
 }

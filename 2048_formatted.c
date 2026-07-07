@@ -13,11 +13,10 @@ s(x){
 }
 
 main(){
-    for(i=X+rand(W=k||system("stty cbreak"))%X;M[--i%X]*i;);
-
-    M[i?i%X:X]=2<<rand(puts("\e[H\e[J"))%2;
-
-    s(56),s(70);
-
-    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,3)|main(s(k%162));
+    W&1|!M[i=rand()%X]
+    ?   M[W&1?X:i]=2<<rand(puts("\e[H\e[J"))%2,
+        W=k||system("stty cbreak"),
+        s(56),s(70),
+        W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%162))
+    :   main();
 }
