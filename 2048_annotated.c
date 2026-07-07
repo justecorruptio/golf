@@ -1,4 +1,4 @@
-/* 2048 in 377 bytes -- a complete terminal 2048.
+/* 2048 in 373 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -8,10 +8,10 @@
 
    The board M[0..15] is the 4x4 grid in row-major order; everything at
    M[16] and above is scratch.  The probes park their dry-run writes at
-   M[x] -- their own argument doubles as the sink address (M[56], M[70]) --
-   and the throwaway spawns of full-board turns land in M[16..31].  Those
-   cells are write-only (the W%2 pre-gate below means nothing ever reads
-   them), so they may be freely overwritten forever.
+   M[B^(G*k+x)] -- their own argument lifts the write into scratch
+   (landing in M[56..79]) -- and the throwaway spawns of full-board turns
+   land in M[16..31].  All scratch is write-only (the W%2 pre-gate below
+   means nothing ever reads it), so it may be overwritten forever.
 
    Everything runs through one routine, s(x): it slides and merges every
    line toward its start, in direction x. Conceptually the cell index is
@@ -54,14 +54,17 @@
    Bit 11 lights iff some tile reached 2048 (probes re-pile the values).
    The endgame test W&2049 selects the stuck and win bits together. */
 
-M[99],W,k,G,i,j,l,P,t,B;
+M[99],W,k,G,i,j,l,P,B;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
        l = the held tile (awaiting a landing spot, or an equal to merge with)
        B = this line's index base (row term XOR reflect term)
-       t = the slot the next write lands in
-   Tiles are powers of two, which keeps the whole merge in bare bit-ops. */
+   Tiles are powers of two, which keeps the whole merge in bare bit-ops --
+   and makes ONE write expression serve both emit and flush:  l+P&~P  is
+   2l on a merge (l==P), l on a block, and degenerates to exactly l when
+   P is 0 or 1 (l is always even).  So the flush arm just forces P=1 and
+   the single write M[...]=l+P&~P covers every store the engine makes. */
 s(x){
     G=5-x%11;                                 /* position coeff: 4 (vertical) or 1
                                                  (horizontal); the row coeff x%11 and
@@ -73,27 +76,31 @@ s(x){
            a global that 0 carries into the next line, so re-zeroing it is
            redundant. The first call inherits l==0 from the zero-init globals. */
         for(j=k=0;k<4;
-            l=j<4
-            ?   W|=P=M[B^G*j++],              /* read cell: line base XOR G*cursor;
-                                                 W|=P lights bit 11 at 2048 */
-                x&64&&printf("%4.0d|%c",P,j/4*10),/* only the x=70 pass renders (bit 6 is
+            /* First expression: decide whether to write.
+               Reads (j<4): fetch the cell, maybe print it, and write iff a
+               tile was read while one is held (P*l != 0) -- the emit.
+               Flushes (j>3): force P=1 (see above) and always write. */
+            (j<4
+            ?   W|=P=M[B^G*j],                /* read cell; W|=P lights bit 11 at 2048 */
+                x&64&&printf("%4.0d|%c",P,j/3*10),/* only the x=70 pass renders (bit 6 is
                                                  unique to 70). %4.0d prints BLANKS for 0;
-                                                 the %c rides the row \n (j/4*10==10 at the
-                                                 4th cell, a NUL the terminal ignores before). */
-                /* A tile (P!=0): if one is held, emit l+P&~P -- 2l on a merge
-                   (l==P) else just l -- and advance k. The branch then evaluates
-                   to the new hold P&~l (0 after a merge, else P). An empty cell
-                   takes the final :l, holding on across the gap. */
-                P?l?M[k++,t]=l+P&~P:0,P&~l:l
-            :   (M[k++,t]=l,W&=~!l,0))         /* line done: store the hold (the comma
-                                                  in M[k++,t] slips the k++ in), record
-                                                  the compaction in W's bit 0, and 0
-                                                  clears the hold */
-        /* Loop body, run before each read: refresh the line base B (row term
-           x%11*i XOR reflect term x%7*G) and aim the write cursor. */
-        B=x%11*i^x%7*G,t=x&1?B^G*k:x;         /* real move (x odd) -> real slot;
-                                                  dry-run sentinel (even) -> scratch M[x]:
-                                                  the argument is its own sink address */
+                                                 the %c rides the row \n -- j is the
+                                                 pre-increment index here, so the 4th
+                                                 cell is j==3 and j/3*10 is the newline
+                                                 (a NUL the terminal ignores before). */
+                P*l
+            :   (P=1)
+            /* The one write site.  k++ rides the index; the +!(x&1)*x lifts
+               dry-run writes into scratch (M[56..79]) -- the sentinel is its
+               own sink offset -- while real moves (x odd) add 0 and write the
+               board slot B^G*k. */
+            )?M[B^G*k+++!(x&1)*x]=l+P&~P:0,
+            /* Second expression: advance the read cursor and update the hold.
+               Reads: P&~l is 0 right after a merge, else P; an empty cell
+               (P==0) keeps l. Flushes: record the compaction in W's bit 0
+               and clear the hold. */
+            l=j++>3?W&=~!l,0:P?P&~l:l
+        )B=x%11*i^x%7*G;                      /* line base, refreshed before each read */
 }
 
 /* main(): one turn per entry, tail-recursing into the next -- and doubling
