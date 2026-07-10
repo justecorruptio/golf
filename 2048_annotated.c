@@ -1,8 +1,8 @@
-/* 2048 in 368 bytes -- a complete terminal 2048.
+/* 2048 in 364 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
-   Style: K&R implicit int. s()'s scratch variables (i,j,l,P,t,B) are GLOBALS
+   Style: K&R implicit int. s()'s scratch variables (i,j,l,P,B) are GLOBALS
    rather than params -- byte-neutral vs a long param list, and it lets one
    of them, l, persist its value between calls (see the loop note below).
 
@@ -21,9 +21,11 @@
    the reflect mask that flips a line for Right/Up.  But the two terms
    never share bits (one is the 4s pair, the other the 1s pair), so + is
    XOR -- and since G is 1 or 4 (a shift), G*(c^m) = G*c ^ G*m.  The whole
-   line-constant part folds into one accumulator computed per line:
-        B = i*I ^ G*m        (written  x%11*i ^ x%7*G)
-   and a cell is just  M[B ^ G*cursor].
+   line-constant part folds into one accumulator computed once per line:
+        B = i*I ^ G*m        (written  4/G*i ^ x%7*G)
+   and a cell is just  M[B ^ G*cursor].  I never appears by name: the
+   axis pair (I,G) is always {1,4}, so I*G = 4 exactly and I = 4/G --
+   the modulus that computed G already paid for both.
    Each turn calls s three times:
         s(56)   probe the vertical axis   (a dry-run sentinel: I=1, no reflect)
         s(70)   probe the horizontal axis -- and draw the board on the way
@@ -67,35 +69,55 @@ M[99],W,k,G,i,j,l,P,B;
    2l on a merge (l==P), l on a block, and degenerates to exactly l when
    P is 0 or 1 (l is always even).  The flush arm forces P=1 -- and that
    1, the only odd P in the program, then doubles as the PHASE FLAG: the
-   hold update  P&~l&~1  is P&~l untouched for even tiles but exactly 0
-   at a flush, so the second half of the loop needs no j-test at all.
-   Bit 0's fourth job. */
+   hold update  P&~-~l  is P&~l untouched for even tiles but exactly 0
+   at a flush, so the loop needs no second phase test.  Bit 0's fourth job.
+   (~-~l is ~(l+1); l is always even, so l+1 == l|1 and this one unary
+   ripple equals the two-mask form ~l&~1 everywhere it runs.)
+
+   The inner for uses all three slots: INIT computes the line base B once
+   (it is line-constant -- it squatted in the body for five generations
+   before anyone noticed it didn't need per-iteration recompute), the
+   BODY is a bare if around the one write site (statement grammar: no
+   ternary, no :0 arm), and the INCREMENT carries the hold update, which
+   thereby runs after the write every iteration, exactly as before. */
 s(x){
     G=5-x%11;                                 /* position coeff: 4 (vertical) or 1
-                                                 (horizontal); the row coeff x%11 and
-                                                 reflect mask x%7 are used inline in B */
+                                                 (horizontal); the row coeff is recovered
+                                                 as 4/G in B (I*G==4), the reflect mask
+                                                 x%7 is used inline there too */
     for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
                                                  the 4th cell's printf below */
-        /* Inner loop resets only j,k -- NOT l. Every line ends with l==0 (the
-           final flush zeroes it via the &~1 mask), and since l is a global
-           that 0 carries into the next line, so re-zeroing it is redundant.
+        /* j,k reset per line -- NOT l: every line ends with l==0 (the
+           final flush zeroes it via the &~1 mask), and l is a global, so
+           that 0 carries into the next line; re-zeroing is redundant.
            The first call inherits l==0 from the zero-init globals. */
-        for(j=k=0;k<4;
-            /* First expression: decide whether to write.
+        for(B=4/G*i^x%7*G,j=k=0;k<4;
+            /* Increment slot: the new hold, phase-free (see header).
+               Reads: P&~(l+1) is 0 right after a merge, else P; an empty
+               cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
+               (bit 0 of ~(l+1) is 0 for even l).  W|= accumulates every
+               held value -- the win bit rides here (tile bits only:
+               every branch value is even or 0). */
+            W|=l=P?P&~-~l:l)
+            /* Decide whether to write.
                Reads (j<4): fetch the cell, maybe print it, and write iff a
                tile was read while one is held (P*l != 0) -- the emit.
                Flushes (j>3): record the compaction in W's bit 0 (l==0 here
                means this line compacted -- gap or merge -- so the board is
-               movable), force P=1, and always write. */
-            (j<4
+               movable), force P=1 (also the arm's value, so flushes always
+               write), and write out the hold. */
+            if(j<4
             ?   P=M[B^G*j++],                 /* read cell (j++ comma-sequenced
                                                  before the printf args below) */
-                x&64&&printf("%4.d|%c",P,j/4*10),/* only the x=70 pass renders (bit 6 is
+                x&64&&printf("%4.d|%c",P,6%j*5),/* only the x=70 pass renders (bit 6 is
                                                  unique to 70). %4.d: a period with no
                                                  digits is precision ZERO (C99 7.19.6.1),
-                                                 so this is %4.0d -- BLANKS for 0; the %c
-                                                 rides the row \n (j/4*10==10 at the 4th
-                                                 cell, a NUL the terminal ignores before). */
+                                                 so this is %4.0d -- BLANKS for 0.  The %c
+                                                 rides the row \n: 6 = lcm(1,2,3), so
+                                                 6%j*5 is 0 at cells 1-3 (a NUL the
+                                                 terminal ignores) and 2*5 = 10 = \n at
+                                                 the 4th (j is 1..4 here, post-increment,
+                                                 so the %j can never divide by zero). */
                 P*l
             :   (W&=~!l,P=1)
             /* The one write site.  k++ rides the index; the +x-x%2*x lifts
@@ -103,14 +125,7 @@ s(x){
                own sink offset: x-x%2*x is 0 for odd x (real moves write the
                board slot B^G*k) and x for even x (probes park in the sink).
                Pure +,-,* bind above ^, so the lift needs no parens here. */
-            )?M[B^G*k+++x-x%2*x]=l+P&~P:0,
-            /* Second expression: the new hold, phase-free (see header).
-               Reads: P&~l is 0 right after a merge, else P; an empty cell
-               (P==0) keeps l.  Flushes: P==1 makes the whole mask 0.
-               W|= accumulates every held value -- the win bit rides here
-               (tile bits only: every branch value is even or 0). */
-            W|=l=P?P&~l&~1:l
-        )B=x%11*i^x%7*G;                      /* line base, refreshed before each read */
+            )M[B^G*k+++x-x%2*x]=l+P&~P;
 }
 
 /* main(): one turn per entry, tail-recursing into the next.  rand() is
@@ -130,9 +145,7 @@ main(){
        The screen clear rides this rand's argument -- retries re-clear,
        invisibly. */
     for(;~W%2&M[i=rand(puts("\e[H\e[J"))%16+W%2*16];);
-    /* The dart landed: play the turn -- at plain statement level now; the
-       old retry recursion's ternary (and its grammar gymnastics) went with
-       it.
+    /* The dart landed: play the turn.
        The spawn: a 2 or 4 (50/50) into the dart cell -- a real cell on a
        live board, a scratch cell (a throwaway) on a full one.  This rand's
        argument carries arm 2: re-arm bit 0 for the probes, and put the
