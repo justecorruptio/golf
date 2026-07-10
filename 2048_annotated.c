@@ -1,4 +1,4 @@
-/* 2048 in 362 bytes -- a complete terminal 2048.
+/* 2048 in 359 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -15,30 +15,30 @@
 
    Everything runs through one routine, s(x): it slides and merges every
    line toward its start, in direction x. Conceptually the cell index is
-   the stride  i*I + G*(c ^ m)  -- I = x%5 is the row coefficient
-   (1 vertical / 4 horizontal), G = 5-I its swap, and m = x%7 (in {0,3})
-   the reflect mask.  The cursors run DOWNWARD (4 to 0, so the loop tests
+   the stride  i*I + G*(c ^ m)  -- G = x%5 is the within-line stride
+   (4 vertical / 1 horizontal), I = 4/G the row coefficient (I*G == 4),
+   and m = x%9 (in {0,3}) the reflect mask.  The cursors run DOWNWARD (4 to 0, so the loop tests
    are the bare `j`/`k`), which reverses every scan -- so each move
    carries the OPPOSITE reflect of the classic layout, and the two terms
    still never share bits: + is XOR, and G*(c^m) = G*c ^ G*m since G is a
    shift.  The whole line-constant part folds into one accumulator:
-        B = i*I ^ G*m        (written  4/G*i ^ x%7*G)
-   and a cell is just  M[B ^ G*cursor].  I never appears by name: the
-   axis pair (I,G) is always {1,4}, so I*G = 4 exactly and I = 4/G --
-   the modulus that computed G already paid for both.
+        B = i*I ^ G*m        (written  4/G*i ^ x%9*G)
+   and a cell is just  M[B ^ G*cursor].  I never appears by name, and G
+   needs no arithmetic at all: the modulus extracts the STRIDE directly
+   (the axis pair is {1,4} with I*G = 4, so I = 4/G).
    Each turn calls s three times:
-        s(56)   probe the vertical axis   (a dry-run sentinel: I=1)
-        s(94)   probe the horizontal axis -- and draw the board on the way
+        s(84)   probe the vertical axis   (a dry-run sentinel: G=4)
+        s(66)   probe the horizontal axis -- and draw the board on the way
                 (its reflect 3 un-mirrors the descending scan, so rows
                 still print left-to-right)
-        s(k*3%42972)  the real move
+        s(k*3%1992)  the real move
    The decode TRIPLES k first: the arrow codes are an arithmetic
-   progression, and *3 re-lands them on the one modulus universe whose
-   reflect pattern matches descending scans (no plain k%N does; this
-   was censused).  Moves are always ODD, so parity (x%2) is the gate on
-   the one write site; the even sentinels 56/94 are dry-runs that write
-   nothing.  The one even value carrying bit 1 (94) is the pass that
-   renders (x&2).
+   progression, and *3 re-lands them on a modulus universe whose
+   reflect pattern matches descending scans AND whose axis residues are
+   the strides themselves (no plain k%N reaches either; censused).
+   Moves are always ODD, so parity (x%2) is the gate on the one write
+   site; the even sentinels 84/66 are dry-runs that write nothing.  The
+   one even value carrying bit 1 (66) is the pass that renders (x&2).
 
    SPAWN: a dart.  Each turn throws one uniform-random dart i=rand()%16;
    an empty cell catches it and receives the new tile, an occupied cell
@@ -86,10 +86,10 @@ M[99],W,k,G,i,j,l,P,B;
    ternary, no :0 arm), and the INCREMENT carries the hold update, which
    thereby runs after the write every iteration, exactly as before. */
 s(x){
-    G=5-x%5;                                  /* position coeff: 4 (vertical) or 1
-                                                 (horizontal); the row coeff is recovered
-                                                 as 4/G in B (I*G==4), the reflect mask
-                                                 x%7 is used inline there too */
+    G=x%5;                                    /* the stride, extracted DIRECTLY: 4
+                                                 (vertical) or 1 (horizontal); the row
+                                                 coeff is recovered as 4/G in B (I*G==4),
+                                                 the reflect mask x%9 is inline there */
     for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
                                                  the 4th cell's printf below */
         /* j,k reset per line to 4 and COUNT DOWN -- the loop tests are the
@@ -97,7 +97,7 @@ s(x){
            zeroes it via the mask), and l is a global, so that 0 carries
            into the next line; re-zeroing is redundant.  The first call
            inherits l==0 from the zero-init globals. */
-        for(B=4/G*i^x%7*G,j=k=4;k;
+        for(B=4/G*i^x%9*G,j=k=4;k;
             /* Increment slot: the new hold, phase-free (see header).
                Reads: P&~(l+1) is 0 right after a merge, else P; an empty
                cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
@@ -115,8 +115,8 @@ s(x){
             if(j
             ?   P=M[B^G*--j],                 /* read cell (--j comma-sequenced
                                                  before the printf args below) */
-                x&2&&printf("%4.d|%c",P,!j*10),/* only the x=94 pass renders (bit 1 is
-                                                 unique to 94). %4.d: a period with no
+                x&2&&printf("%4.d|%c",P,!j*10),/* only the x=66 pass renders (bit 1 is
+                                                 unique to 66). %4.d: a period with no
                                                  digits is precision ZERO (C99 7.19.6.1),
                                                  so this is %4.0d -- BLANKS for 0.  The %c
                                                  rides the row \n: j has counted down to 0
@@ -161,10 +161,10 @@ main(){
        descending cursors end every line at 0.)  (The dart above reads W,
        this writes it -- the loop's exit sequences them.) */
     M[i]=2<<rand(W=G||system("stty cbreak"))%2,
-    s(56),s(94),                              /* probe both axes; s(94) redraws */
+    s(84),s(66),                              /* probe both axes; s(66) redraws */
     /* Game over?  W&2049 reads stuck+win together.  Otherwise read the
        next arrow into k -- and W=3 rides the byte count (arm 1): bit 0
        set just before the move, so the move's flushes can prove an empty
        cell exists for the next dart.  Bit 1 is junk range, harmless. */
-    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k*3%42972));
+    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k*3%1992));
 }
