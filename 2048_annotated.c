@@ -1,4 +1,4 @@
-/* 2048 in 370 bytes -- a complete terminal 2048.
+/* 2048 in 368 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -10,8 +10,9 @@
    M[16] and above is scratch.  The probes park their dry-run writes at
    M[B^(G*k+x)] -- their own argument lifts the write into scratch
    (landing in M[56..79]) -- and the throwaway spawns of full-board turns
-   land in M[16..31].  All scratch is write-only (the W%2 pre-gate below
-   means nothing ever reads it), so it may be overwritten forever.
+   land in M[16..31].  All scratch is write-only (the retry loop's mask
+   below means nothing ever acts on a scratch read), so it may be
+   overwritten forever.
 
    Everything runs through one routine, s(x): it slides and merges every
    line toward its start, in direction x. Conceptually the cell index is
@@ -28,19 +29,20 @@
         s(70)   probe the horizontal axis -- and draw the board on the way
         s(k%162)  the real move
    The three are told apart entirely by the argument: k%162 is always ODD
-   (k is odd, 162 even), so x&1 marks a real move; the even sentinels 56/70
+   (k is odd, 162 even), so parity (x%2) marks a real move; the even sentinels 56/70
    are dry-runs, writing to the scratch cell instead of the board. The one
    even value carrying bit 6 (70) is the pass that renders (x&64).
 
    SPAWN: a dart.  Each turn throws one uniform-random dart i=rand()%16;
    an empty cell catches it and receives the new tile, an occupied cell
-   sends main into a tail-recursive retry (a fresh dart, no key consumed,
-   so exactly one tile still appears per keypress).  The retry needs a
-   certificate that an empty cell exists, or a full board would loop
-   forever -- that certificate is W's bit 0, double-armed (see below),
-   and it rides IN THE INDEX: +W%2*16 lifts a full board's darts into the
-   scratch region, whose zero cells catch them, so the spawn lands in the
-   sink with no separate routing test at all.
+   just re-rolls -- the dart is a bare for-loop that spins until it lands
+   (a fresh dart per spin, no key consumed, so exactly one tile still
+   appears per keypress, and every retry consumes fresh entropy).  The
+   loop needs a certificate that an empty cell exists, or a full board
+   would spin forever -- that certificate is W's bit 0, double-armed (see
+   below), and it rides IN THE INDEX: +W%2*16 lifts a full board's darts
+   into the scratch region -- while the same bit zeroes the loop mask, so
+   the routed dart also exits the loop at once (see main).
 
    W carries two status bits, each rebuilt in its own window every turn.
    Cell reads do W|=P, piling tile values into W. Tiles are even, so bit 0
@@ -88,17 +90,20 @@ s(x){
             (j<4
             ?   P=M[B^G*j++],                 /* read cell (j++ comma-sequenced
                                                  before the printf args below) */
-                x&64&&printf("%4.0d|%c",P,j/4*10),/* only the x=70 pass renders (bit 6 is
-                                                 unique to 70). %4.0d prints BLANKS for 0;
-                                                 the %c rides the row \n (j/4*10==10 at the
-                                                 4th cell, a NUL the terminal ignores before). */
+                x&64&&printf("%4.d|%c",P,j/4*10),/* only the x=70 pass renders (bit 6 is
+                                                 unique to 70). %4.d: a period with no
+                                                 digits is precision ZERO (C99 7.19.6.1),
+                                                 so this is %4.0d -- BLANKS for 0; the %c
+                                                 rides the row \n (j/4*10==10 at the 4th
+                                                 cell, a NUL the terminal ignores before). */
                 P*l
             :   (W&=~!l,P=1)
-            /* The one write site.  k++ rides the index; the +!(x&1)*x lifts
+            /* The one write site.  k++ rides the index; the +x-x%2*x lifts
                dry-run writes into scratch (M[56..79]) -- the sentinel is its
-               own sink offset -- while real moves (x odd) add 0 and write the
-               board slot B^G*k. */
-            )?M[B^G*k+++!(x&1)*x]=l+P&~P:0,
+               own sink offset: x-x%2*x is 0 for odd x (real moves write the
+               board slot B^G*k) and x for even x (probes park in the sink).
+               Pure +,-,* bind above ^, so the lift needs no parens here. */
+            )?M[B^G*k+++x-x%2*x]=l+P&~P:0,
             /* Second expression: the new hold, phase-free (see header).
                Reads: P&~l is 0 right after a merge, else P; an empty cell
                (P==0) keeps l.  Flushes: P==1 makes the whole mask 0.
@@ -108,36 +113,38 @@ s(x){
         )B=x%11*i^x%7*G;                      /* line base, refreshed before each read */
 }
 
-/* main(): one turn per entry, tail-recursing into the next -- and doubling
-   as the spawn's retry loop.  rand() is left unseeded, so every game
-   replays identically.  k is dual-role: s()'s write cursor above, and the
-   read buffer for the 3-byte arrow escape below. */
+/* main(): one turn per entry, tail-recursing into the next.  rand() is
+   left unseeded, so every game replays identically.  k is dual-role:
+   s()'s write cursor above, and the read buffer for the 3-byte arrow
+   escape below. */
 main(){
-    /* The dart, with the full-board routing fused into the index: W's bit 0
-       set (the last move proved nothing compacts = board full) lifts the
-       dart into scratch [16,31].  The W%2| pre-gate makes full-board turns
-       proceed WITHOUT reading the scratch cell -- scratch is write-only, so
-       sink cells can be dirty and it never matters (and the retry loop can
-       never be starved: on live boards the dart only reads board cells).
+    /* The dart, as a bare retry loop: spin while the board is live AND the
+       cell is occupied.  ~W%2 is -1 (all ones) when bit 0 is clear and 0
+       when set, so the & both applies that mask and keeps M[i] evaluated
+       without short-circuiting -- i is assigned on every roll.  Full-board
+       routing stays fused in the index: bit 0 set lifts the dart into
+       scratch [16,31] and simultaneously zeroes the mask, so a routed dart
+       exits the loop at once regardless of what junk sits in the sink --
+       scratch stays write-only.  On live boards the mask is all ones and
+       the loop spins exactly until an empty board cell catches the dart.
        The screen clear rides this rand's argument -- retries re-clear,
        invisibly. */
-    W%2|!M[i=rand(puts("\e[H\e[J"))%16+W%2*16]
-    ?   /* The dart landed: play the turn.  This whole chain sits in the
-           ternary's MIDDLE, which the C grammar lets hold top-level commas
-           -- the else-branch could not.
-           The spawn: a 2 or 4 (50/50) into the dart cell -- a real cell on
-           a live board, a scratch cell (a throwaway) on a full one.  This
-           rand's argument carries arm 2: re-arm bit 0 for the probes, and
-           put the terminal in cbreak (per-key) mode exactly once -- k is 0
-           only on the very first turn, and || short-circuits the system()
-           call away after that.  (The index above reads W, this expression
-           writes it -- legal only because the ternary sequences them.) */
-        M[i]=2<<rand(W=k||system("stty cbreak"))%2,
-        s(56),s(70),                          /* probe both axes; s(70) redraws */
-        /* Game over?  W&2049 reads stuck+win together.  Otherwise read the
-           next arrow into k -- and W=3 rides the byte count (arm 1): bit 0
-           set just before the move, so the move's flushes can prove an empty
-           cell exists for the next dart.  Bit 1 is junk range, harmless. */
-        W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%162))
-    :   main();                               /* dart bounced off a tile: re-throw */
+    for(;~W%2&M[i=rand(puts("\e[H\e[J"))%16+W%2*16];);
+    /* The dart landed: play the turn -- at plain statement level now; the
+       old retry recursion's ternary (and its grammar gymnastics) went with
+       it.
+       The spawn: a 2 or 4 (50/50) into the dart cell -- a real cell on a
+       live board, a scratch cell (a throwaway) on a full one.  This rand's
+       argument carries arm 2: re-arm bit 0 for the probes, and put the
+       terminal in cbreak (per-key) mode exactly once -- k is 0 only on the
+       very first turn, and || short-circuits the system() call away after
+       that.  (The dart above reads W, this writes it -- the loop's exit
+       sequences them.) */
+    M[i]=2<<rand(W=k||system("stty cbreak"))%2,
+    s(56),s(70),                              /* probe both axes; s(70) redraws */
+    /* Game over?  W&2049 reads stuck+win together.  Otherwise read the
+       next arrow into k -- and W=3 rides the byte count (arm 1): bit 0
+       set just before the move, so the move's flushes can prove an empty
+       cell exists for the next dart.  Bit 1 is junk range, harmless. */
+    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%162));
 }
