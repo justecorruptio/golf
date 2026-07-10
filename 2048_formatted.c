@@ -15,5 +15,5 @@ main(){
     for(;~W%2&M[i=rand(puts("\e[H\e[J"))%16+W%2*16];);
     M[i]=2<<rand(W=G||system("stty cbreak"))%2,
     s(84),s(66),
-    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k*3%1992));
+    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%664*3));
 }

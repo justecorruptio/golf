@@ -1,4 +1,4 @@
-/* 2048 in 359 bytes -- a complete terminal 2048.
+/* 2048 in 358 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -31,11 +31,13 @@
         s(66)   probe the horizontal axis -- and draw the board on the way
                 (its reflect 3 un-mirrors the descending scan, so rows
                 still print left-to-right)
-        s(k*3%1992)  the real move
-   The decode TRIPLES k first: the arrow codes are an arithmetic
-   progression, and *3 re-lands them on a modulus universe whose
+        s(k%664*3)  the real move
+   The decode reduces mod 664 and TRIPLES the residue: k%664*3 (the
+   cheap twin of k*3%1992, since kc mod cN = c(k mod N)).  Tripling
+   re-lands the arrow codes' arithmetic progression on a universe whose
    reflect pattern matches descending scans AND whose axis residues are
-   the strides themselves (no plain k%N reaches either; censused).
+   the strides themselves -- no plain k%N reaches either, and a census
+   of every two-operation decode form shows this one is unique.
    Moves are always ODD, so parity (x%2) is the gate on the one write
    site; the even sentinels 84/66 are dry-runs that write nothing.  The
    one even value carrying bit 1 (66) is the pass that renders (x&2).
@@ -166,5 +168,5 @@ main(){
        next arrow into k -- and W=3 rides the byte count (arm 1): bit 0
        set just before the move, so the move's flushes can prove an empty
        cell exists for the next dart.  Bit 1 is junk range, harmless. */
-    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k*3%1992));
+    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%664*3));
 }
