@@ -1,4 +1,4 @@
-/* 2048 in 358 bytes -- a complete terminal 2048.
+/* 2048 in 357 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -8,7 +8,7 @@
 
    The board M[0..15] is the 4x4 grid in row-major order; the throwaway
    spawns of full-board turns land in the scratch row M[16..31], which is
-   write-only (the retry loop's mask below means nothing ever acts on a
+   write-only (the dart's multiply gate below means nothing ever acts on a
    scratch read).  The probes write NOTHING at all: the one write site is
    gated on x%2, and probes are even (see below) -- their slide runs dry,
    pure state-machine, board untouched.
@@ -17,11 +17,12 @@
    line toward its start, in direction x. Conceptually the cell index is
    the stride  i*I + G*(c ^ m)  -- G = x%5 is the within-line stride
    (4 vertical / 1 horizontal), I = 4/G the row coefficient (I*G == 4),
-   and m = x%9 (in {0,3}) the reflect mask.  The cursors run DOWNWARD (4 to 0, so the loop tests
-   are the bare `j`/`k`), which reverses every scan -- so each move
-   carries the OPPOSITE reflect of the classic layout, and the two terms
-   still never share bits: + is XOR, and G*(c^m) = G*c ^ G*m since G is a
-   shift.  The whole line-constant part folds into one accumulator:
+   and m = x%9 (in {0,3}) the reflect mask.  The cursors run DOWNWARD (4
+   to 0, so the loop tests are the bare `j`/`k`), which reverses every
+   scan -- so each move carries the OPPOSITE reflect of the classic
+   layout, and the two terms still never share bits: + is XOR, and
+   G*(c^m) = G*c ^ G*m since G is a shift.  The whole line-constant part
+   folds into one accumulator:
         B = i*I ^ G*m        (written  4/G*i ^ x%9*G)
    and a cell is just  M[B ^ G*cursor].  I never appears by name, and G
    needs no arithmetic at all: the modulus extracts the STRIDE directly
@@ -48,24 +49,36 @@
    (a fresh dart per spin, no key consumed, so exactly one tile still
    appears per keypress, and every retry consumes fresh entropy).  The
    loop needs a certificate that an empty cell exists, or a full board
-   would spin forever -- that certificate is W's bit 0, double-armed (see
-   below), and it rides IN THE INDEX: +W%2*16 lifts a full board's darts
-   into the scratch region -- while the same bit zeroes the loop mask, so
-   the routed dart also exits the loop at once (see main).
+   would spin forever -- that certificate is V (see below), and it acts
+   twice in one condition: !V*16 lifts a no-motion turn's dart into the
+   scratch region, while multiplying by V zeroes the same turn's retry
+   condition, so a routed dart also exits the loop at once (see main).
 
-   W carries two status bits, each rebuilt in its own window every turn.
-   Cell reads do W|=P, piling tile values into W. Tiles are even, so bit 0
-   is never touched by that and works as a flag armed twice per turn:
-     arm 1  W=3 rides the read() byte count -- armed just before the MOVE,
-            whose flushes clear it (W&=~!l) iff a line compacts, i.e. iff
-            the board has an empty cell afterward.  So at dart time,
-            bit 0 == 0 certifies the retry loop terminates.
-     arm 2  W=G||system(...) re-arms it after the spawn for the PROBES;
-            if neither probe finds a gap or merge, bit 0 survives = stuck.
-   Bit 11 lights iff some tile reached 2048 (probes re-pile the values).
-   The endgame test W&2049 selects the stuck and win bits together. */
+   STATUS: two flags, one bit each, split by job.
+     V is the MOTION flag, and events RAISE it: the flush arm does
+        V|=!l whenever a line compacts (gap swallowed or merge made).
+        It is reset twice per turn, each reset riding an argument that
+        had to be there anyway:  V=0 rides read()'s fd (stdin IS fd 0)
+        just before the move -- so at dart time V answers "did that
+        move change anything?" -- and V=!G&&... rides the stty gate
+        just before the probes -- so at the endgame test V answers
+        "can anything still move?".  Between a reset and its readers V
+        is EXACTLY 0 or 1, never junk, which is what pays for the
+        dart's two-char multiply gate.  The declaration's V=1 covers
+        turn one: the first dart must land although no move preceded
+        it (16 empty cells make their own certificate).
+     W is the WIN flag and nothing else.  The hold update's value is
+        shifted down 11 places before accumulating: only a 2048 has
+        bit 11, so W stays 0 until one exists.  A merge never holds
+        the 2048 it makes (the update zeroes a merged hold) -- the
+        probes re-scan all 16 cells the same turn and ADOPT the new
+        2048 as a held value, delivering the win before the endgame
+        test runs.  Keeping the stuck bit out of W is what legalizes
+        the bare shift: no mask, no collision.
+   The endgame reads both flags in two characters: V>W continues
+   exactly on (V,W) = (1,0), movable and unwon. */
 
-M[99],W,k,G,i,j,l,P,B;
+M[99],V=1,W,k,G,i,j,l,P,B;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
@@ -103,17 +116,19 @@ s(x){
             /* Increment slot: the new hold, phase-free (see header).
                Reads: P&~(l+1) is 0 right after a merge, else P; an empty
                cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
-               (bit 0 of ~(l+1) is 0 for even l).  W|= accumulates every
-               held value -- the win bit rides here (tile bits only:
-               every branch value is even or 0). */
-            W|=l=P?P&~-~l:l)
+               (bit 0 of ~(l+1) is 0 for even l).  The parenthesized value
+               is then the WIN DELIVERY: shifted down 11, every tile below
+               2048 vanishes and a 2048 hold becomes exactly 1 -- W is the
+               win bit and only the win bit. */
+            W|=(l=P?P&~-~l:l)>>11)
             /* Decide whether to write.
                Reads (j<4): fetch the cell, maybe print it, and write iff a
                tile was read while one is held (P*l != 0) -- the emit.
-               Flushes (j>3): record the compaction in W's bit 0 (l==0 here
-               means this line compacted -- gap or merge -- so the board is
-               movable), force P=1 (also the arm's value, so flushes always
-               write), and write out the hold. */
+               Flushes (j>3): raise the MOTION flag (l==0 here means this
+               line compacted -- gap or merge -- so the board changed /
+               can change, whichever question V is currently answering),
+               force P=1 (also the arm's value, so flushes always write),
+               and write out the hold. */
             if(j
             ?   P=M[B^G*--j],                 /* read cell (--j comma-sequenced
                                                  before the printf args below) */
@@ -126,7 +141,7 @@ s(x){
                                                  there and a NUL (which the terminal
                                                  ignores) before. */
                 P*l
-            :   (W&=~!l,P=1)
+            :   (V|=!l,P=1)
             /* The one write site, gated on parity: real moves (x odd) write
                the board slot B^G*(--k), probes (x even) write nothing --
                their pass is pure state machine.  The decrement is spelled in
@@ -142,31 +157,37 @@ s(x){
    escape below. */
 main(){
     /* The dart, as a bare retry loop: spin while the board is live AND the
-       cell is occupied.  ~W%2 is -1 (all ones) when bit 0 is clear and 0
-       when set, so the & both applies that mask and keeps M[i] evaluated
-       without short-circuiting -- i is assigned on every roll.  Full-board
-       routing stays fused in the index: bit 0 set lifts the dart into
-       scratch [16,31] and simultaneously zeroes the mask, so a routed dart
-       exits the loop at once regardless of what junk sits in the sink --
-       scratch stays write-only.  On live boards the mask is all ones and
-       the loop spins exactly until an empty board cell catches the dart.
+       cell is occupied.  V is exactly 0 or 1 here (junk-free -- see header),
+       so the gate is a bare multiply: on live boards (V=1, the last move
+       compacted something -- or the declaration's V=1 on the virgin board)
+       the condition is M[i] itself and the loop spins exactly until an
+       empty cell catches the dart; after a no-op move (V=0) the product
+       dies, the loop exits on its first roll, and the same !V has lifted
+       the dart's index into scratch [16,31] -- the throwaway spawn lands
+       where nothing reads.  The multiply, unlike &&, keeps M[i] evaluated,
+       so i is assigned on every roll.  (The old unified flag carried junk
+       bits that forced ~W%2&M[...] here: (M[i]*W)%2 would parse wrong and
+       zero out on every even tile -- the clean V buys the short gate.)
        The screen clear rides this rand's argument -- retries re-clear,
        invisibly. */
-    for(;~W%2&M[i=rand(puts("\e[H\e[J"))%16+W%2*16];);
+    for(;M[i=rand(puts("\e[H\e[J"))%16+!V*16]*V;);
     /* The dart landed: play the turn.
-       The spawn: a 2 or 4 (50/50) into the dart cell -- a real cell on a
-       live board, a scratch cell (a throwaway) on a full one.  This rand's
-       argument carries arm 2: re-arm bit 0 for the probes, and put the
-       terminal in cbreak (per-key) mode exactly once -- G is 0 only on the
-       very first turn (s has never run), and || short-circuits the
-       system() call away after that.  (k no longer works as this gate: the
-       descending cursors end every line at 0.)  (The dart above reads W,
+       The spawn: a 2 or 4 (50/50) into the dart cell -- a real cell after
+       a compacting move, a scratch cell (a throwaway) after a no-op.  This
+       rand's argument resets V for the probes ("assume stuck, let the
+       flushes prove otherwise") and gates the terminal setup: G is 0 only
+       on the very first turn (s has never run), so !G&& runs system()
+       exactly once -- and V lands 0 either way (turn 1: 1 && stty's 0
+       exit; after: 0 && short-circuit).  (k can't serve as this gate:
+       descending cursors end every line at 0.  The dart above reads V,
        this writes it -- the loop's exit sequences them.) */
-    M[i]=2<<rand(W=G||system("stty cbreak"))%2,
+    M[i]=2<<rand(V=!G&&system("stty cbreak"))%2,
     s(84),s(66),                              /* probe both axes; s(66) redraws */
-    /* Game over?  W&2049 reads stuck+win together.  Otherwise read the
-       next arrow into k -- and W=3 rides the byte count (arm 1): bit 0
-       set just before the move, so the move's flushes can prove an empty
-       cell exists for the next dart.  Bit 1 is junk range, harmless. */
-    W&2049?puts(W>>11?"WIN":"LOSE"):read(0,&k,W=3)|main(s(k%664*3));
+    /* Game over?  V>W reads both flags at once: continue exactly when
+       movable and unwon (V=1, W=0); any 2048 prints WIN (movable or not),
+       stuck without one prints LOSE.  Otherwise read the next arrow into
+       k -- and V=0 rides the fd argument (stdin IS file descriptor 0),
+       resetting the motion flag just before the move whose flushes may
+       raise it, so the next dart routes honestly. */
+    V>W?read(V=0,&k,3)|main(s(k%664*3)):puts(W?"WIN":"LOSE");
 }
