@@ -1,4 +1,4 @@
-/* 2048 in 357 bytes -- a complete terminal 2048.
+/* 2048 in 355 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -6,12 +6,12 @@
    rather than params -- byte-neutral vs a long param list, and it lets one
    of them, l, persist its value between calls (see the loop note below).
 
-   The board M[0..15] is the 4x4 grid in row-major order; the throwaway
-   spawns of full-board turns land in the scratch row M[16..31], which is
-   write-only (the dart's multiply gate below means nothing ever acts on a
-   scratch read).  The probes write NOTHING at all: the one write site is
-   gated on x%2, and probes are even (see below) -- their slide runs dry,
-   pure state-machine, board untouched.
+   The board M[0..15] is the 4x4 grid in row-major order; nothing ever
+   writes past M[15] (the rest of M[99] is free headroom).  The probes
+   write NOTHING at all: the one write site is gated on x%2, and probes
+   are even (see below) -- their slide runs dry, pure state-machine,
+   board untouched.  Full-board turns write nothing either: the spawn
+   itself is skipped (see main).
 
    Everything runs through one routine, s(x): it slides and merges every
    line toward its start, in direction x. Conceptually the cell index is
@@ -49,10 +49,11 @@
    (a fresh dart per spin, no key consumed, so exactly one tile still
    appears per keypress, and every retry consumes fresh entropy).  The
    loop needs a certificate that an empty cell exists, or a full board
-   would spin forever -- that certificate is V (see below), and it acts
-   twice in one condition: !V*16 lifts a no-motion turn's dart into the
-   scratch region, while multiplying by V zeroes the same turn's retry
-   condition, so a routed dart also exits the loop at once (see main).
+   would spin forever -- that certificate is V (see below): V=0 happens
+   only when the board is FULL, and then the multiply gate kills the
+   condition on the first roll and the spawn statement is skipped
+   outright (a ternary on V, see main) -- nothing is thrown away,
+   nothing is written.
 
    STATUS: two flags, one bit each, split by job.
      V is the MOTION flag, and events RAISE it: the flush arm does
@@ -60,21 +61,28 @@
         It is reset twice per turn, each reset riding an argument that
         had to be there anyway:  V=0 rides read()'s fd (stdin IS fd 0)
         just before the move -- so at dart time V answers "did that
-        move change anything?" -- and V=!G&&... rides the stty gate
-        just before the probes -- so at the endgame test V answers
-        "can anything still move?".  Between a reset and its readers V
-        is EXACTLY 0 or 1, never junk, which is what pays for the
-        dart's two-char multiply gate.  The declaration's V=1 covers
-        turn one: the first dart must land although no move preceded
-        it (16 empty cells make their own certificate).
-     W is the WIN flag and nothing else.  The hold update's value is
-        shifted down 11 places before accumulating: only a 2048 has
-        bit 11, so W stays 0 until one exists.  A merge never holds
-        the 2048 it makes (the update zeroes a merged hold) -- the
-        probes re-scan all 16 cells the same turn and ADOPT the new
-        2048 as a held value, delivering the win before the endgame
-        test runs.  Keeping the stuck bit out of W is what legalizes
-        the bare shift: no mask, no collision.
+        move pass see an empty cell or a merge?" (either one leaves an
+        empty cell behind, so V=1 certifies the dart lands; V=0 means
+        the board is FULL) -- and V=!G&&... rides the stty gate just
+        before the probes -- so at the endgame test V answers "can
+        anything still move?".  Between a reset and its readers V is
+        EXACTLY 0 or 1, never junk, which is what pays for the dart's
+        two-char multiply gate.  The declaration's V=1 covers turn
+        one: the first dart must land although no move preceded it
+        (16 empty cells make their own certificate).
+     W is the WIN flag and nothing else.  It rides the render call
+        as one of printf's extra arguments -- C evaluates and IGNORES
+        arguments beyond the format string, so the slot is free: every
+        cell the render pass reads lands in P, and P>>11 is 1 exactly
+        for a 2048 (no lesser tile has bit 11).  The render pass scans
+        all 16 cells each turn, and the board still holds a fresh 2048
+        when it runs (moves write it, probes never overwrite it), so
+        the win is delivered before the same turn's endgame test.
+        Keeping the stuck bit out of W is what legalizes the bare
+        shift: no mask, no collision.  (Six other homes tie at this
+        byte count -- capturing the hold update in the loop increment,
+        the read site, the merge write, the loop condition -- the
+        delivery is 8 chars plus one glue comma wherever it lives.)
    The endgame reads both flags in two characters: V>W continues
    exactly on (V,W) = (1,0), movable and unwon. */
 
@@ -116,11 +124,8 @@ s(x){
             /* Increment slot: the new hold, phase-free (see header).
                Reads: P&~(l+1) is 0 right after a merge, else P; an empty
                cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
-               (bit 0 of ~(l+1) is 0 for even l).  The parenthesized value
-               is then the WIN DELIVERY: shifted down 11, every tile below
-               2048 vanishes and a 2048 hold becomes exactly 1 -- W is the
-               win bit and only the win bit. */
-            W|=(l=P?P&~-~l:l)>>11)
+               (bit 0 of ~(l+1) is 0 for even l). */
+            l=P?P&~-~l:l)
             /* Decide whether to write.
                Reads (j<4): fetch the cell, maybe print it, and write iff a
                tile was read while one is held (P*l != 0) -- the emit.
@@ -132,14 +137,18 @@ s(x){
             if(j
             ?   P=M[B^G*--j],                 /* read cell (--j comma-sequenced
                                                  before the printf args below) */
-                x&2&&printf("%4.d|%c",P,!j*10),/* only the x=66 pass renders (bit 1 is
+                x&2&&printf("%4.d|%c",P,!j*10,W|=P>>11),
+                                              /* only the x=66 pass renders (bit 1 is
                                                  unique to 66). %4.d: a period with no
                                                  digits is precision ZERO (C99 7.19.6.1),
                                                  so this is %4.0d -- BLANKS for 0.  The %c
                                                  rides the row \n: j has counted down to 0
                                                  exactly at the 4th cell, so !j*10 is \n
                                                  there and a NUL (which the terminal
-                                                 ignores) before. */
+                                                 ignores) before.  The LAST argument is
+                                                 the WIN DELIVERY (see header): printf
+                                                 evaluates it and ignores it -- a free
+                                                 expression slot, once per rendered cell. */
                 P*l
             :   (V|=!l,P=1)
             /* The one write site, gated on parity: real moves (x odd) write
@@ -159,35 +168,41 @@ main(){
     /* The dart, as a bare retry loop: spin while the board is live AND the
        cell is occupied.  V is exactly 0 or 1 here (junk-free -- see header),
        so the gate is a bare multiply: on live boards (V=1, the last move
-       compacted something -- or the declaration's V=1 on the virgin board)
-       the condition is M[i] itself and the loop spins exactly until an
-       empty cell catches the dart; after a no-op move (V=0) the product
-       dies, the loop exits on its first roll, and the same !V has lifted
-       the dart's index into scratch [16,31] -- the throwaway spawn lands
-       where nothing reads.  The multiply, unlike &&, keeps M[i] evaluated,
-       so i is assigned on every roll.  (The old unified flag carried junk
-       bits that forced ~W%2&M[...] here: (M[i]*W)%2 would parse wrong and
-       zero out on every even tile -- the clean V buys the short gate.)
-       The screen clear rides this rand's argument -- retries re-clear,
-       invisibly. */
-    for(;M[i=rand(puts("\e[H\e[J"))%16+!V*16]*V;);
-    /* The dart landed: play the turn.
-       The spawn: a 2 or 4 (50/50) into the dart cell -- a real cell after
-       a compacting move, a scratch cell (a throwaway) after a no-op.  This
-       rand's argument resets V for the probes ("assume stuck, let the
-       flushes prove otherwise") and gates the terminal setup: G is 0 only
-       on the very first turn (s has never run), so !G&& runs system()
+       saw an empty or opened one by merging -- or the declaration's V=1 on
+       the virgin board) the condition is M[i] itself and the loop spins
+       exactly until an empty cell catches the dart; when V=0 the board is
+       provably FULL, the product dies on the first roll, and i is never
+       looked at again -- the ternary below skips the spawn store entirely.
+       The multiply, unlike &&, keeps M[i] evaluated, so the clear is
+       emitted (and i assigned) on every roll.  (The old unified flag
+       carried junk bits that forced ~W%2&M[...] here -- the clean V buys
+       the short gate.)  The screen clear rides this rand's argument --
+       retries re-clear, invisibly. */
+    for(;M[i=rand(puts("\e[H\e[J"))%16]*V;);
+    /* The spawn, gated on V: a 2 or 4 (50/50) into the dart cell -- but
+       only when the board can take it.  When V=0 (full board, dart done
+       in one roll) the else arm does nothing: no store, no rand consumed.
+       The skip is legal because the middle arm's side effects are
+       IDEMPOTENT on the skip path: V is already 0, and the terminal setup
+       can't still be pending (stty belongs to turn one, where the
+       declaration's V=1 guarantees the middle arm runs).  On V=1 turns
+       this rand's argument resets V for the probes ("assume stuck, let
+       the flushes prove otherwise") and gates the setup: G is 0 only on
+       the very first turn (s has never run), so !G&& runs system()
        exactly once -- and V lands 0 either way (turn 1: 1 && stty's 0
-       exit; after: 0 && short-circuit).  (k can't serve as this gate:
-       descending cursors end every line at 0.  The dart above reads V,
-       this writes it -- the loop's exit sequences them.) */
-    M[i]=2<<rand(V=!G&&system("stty cbreak"))%2,
+       exit; after: 0 && short-circuit).  (k can't serve as that gate:
+       descending cursors end every line at 0.  The ?: sequence point
+       orders the gate's V-read before the arm's V-write.) */
+    V?M[i]=2<<rand(V=!G&&system("stty cbreak"))%2:0,
     s(84),s(66),                              /* probe both axes; s(66) redraws */
     /* Game over?  V>W reads both flags at once: continue exactly when
        movable and unwon (V=1, W=0); any 2048 prints WIN (movable or not),
        stuck without one prints LOSE.  Otherwise read the next arrow into
        k -- and V=0 rides the fd argument (stdin IS file descriptor 0),
        resetting the motion flag just before the move whose flushes may
-       raise it, so the next dart routes honestly. */
-    V>W?read(V=0,&k,3)|main(s(k%664*3)):puts(W?"WIN":"LOSE");
+       raise it, so the next dart routes honestly.  The COMMA between the
+       read and the recursion is a sequence point (a ternary's middle arm
+       is a full expression, commas welcome): the key is read into k
+       strictly before the decode reads k -- no evaluation-order luck. */
+    V>W?read(V=0,&k,3),main(s(k%664*3)):puts(W?"WIN":"LOSE");
 }
