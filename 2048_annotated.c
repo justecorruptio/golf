@@ -1,4 +1,4 @@
-/* 2048 in 355 bytes -- a complete terminal 2048.
+/* 2048 in 354 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -55,13 +55,14 @@
    outright (a ternary on V, see main) -- nothing is thrown away,
    nothing is written.
 
-   STATUS: two flags, one bit each, split by job.
-     V is the MOTION flag, and events RAISE it: the flush arm does
-        V|=!l whenever a line compacts (gap swallowed or merge made).
-        It is reset twice per turn, each reset riding an argument that
-        had to be there anyway:  V=0 rides read()'s fd (stdin IS fd 0)
-        just before the move -- so at dart time V answers "did that
-        move pass see an empty cell or a merge?" (either one leaves an
+   STATUS: one variable, two channels.  V's LOW BIT is the motion
+   flag; V's SIGN is the win flag.
+     Motion: events RAISE it -- the flush arm does V|=!l whenever a
+        line compacts (gap swallowed or merge made).  It is reset
+        twice per turn, each reset riding an argument that had to be
+        there anyway:  V=0 rides read()'s fd (stdin IS fd 0) just
+        before the move -- so at dart time V answers "did that move
+        pass see an empty cell or a merge?" (either one leaves an
         empty cell behind, so V=1 certifies the dart lands; V=0 means
         the board is FULL) -- and V=!G&&... rides the stty gate just
         before the probes -- so at the endgame test V answers "can
@@ -70,23 +71,29 @@
         two-char multiply gate.  The declaration's V=1 covers turn
         one: the first dart must land although no move preceded it
         (16 empty cells make their own certificate).
-     W is the WIN flag and nothing else.  It rides the render call
-        as one of printf's extra arguments -- C evaluates and IGNORES
-        arguments beyond the format string, so the slot is free: every
-        cell the render pass reads lands in P, and P>>11 is 1 exactly
-        for a 2048 (no lesser tile has bit 11).  The render pass scans
-        all 16 cells each turn, and the board still holds a fresh 2048
-        when it runs (moves write it, probes never overwrite it), so
-        the win is delivered before the same turn's endgame test.
-        Keeping the stuck bit out of W is what legalizes the bare
-        shift: no mask, no collision.  (Six other homes tie at this
-        byte count -- capturing the hold update in the loop increment,
-        the read site, the merge write, the loop condition -- the
-        delivery is 8 chars plus one glue comma wherever it lives.)
-   The endgame reads both flags in two characters: V>W continues
-   exactly on (V,W) = (1,0), movable and unwon. */
+     Win: the render call delivers it SUBTRACTIVELY as one of
+        printf's extra arguments -- C evaluates and IGNORES arguments
+        beyond the format string, so the slot is free: every cell the
+        render pass reads lands in P, and P&2048 is 2048 exactly for
+        a 2048 tile (no lesser tile has bit 11, and 4096 can never
+        exist: the game ends the turn the first 2048 appears).
+        V-=2048 drives V negative and it STAYS negative -- later
+        flushes only OR in bit 0, which cannot flip the sign, and
+        further 2048s only subtract more -- and no reset intervenes
+        between the render and the test below, which is the whole
+        trick: the win only has to survive two commas.  The mask is
+        load-bearing twice over: P>>10 would leak a 1024's bit into
+        the motion channel (a stuck board holding a 1024 would miss
+        its LOSE), and the OR form V|=P&2048 keeps the sign positive
+        and forces the costlier test V==1.  Moves never deliver
+        (their bit 1 is clear, so x&2 never fires), which is what
+        keeps the dart's and the spawn's V strictly 0-or-1.
+   The endgame reads both channels in three characters: V>0 continues
+   exactly on V==1, movable and unwon -- any win is negative, stuck
+   is 0.  At the select V is 0 or negative, so a bare V picks
+   WIN/LOSE. */
 
-M[99],V=1,W,k,G,i,j,l,P,B;
+M[99],V=1,k,G,i,j,l,P,B;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
@@ -137,7 +144,7 @@ s(x){
             if(j
             ?   P=M[B^G*--j],                 /* read cell (--j comma-sequenced
                                                  before the printf args below) */
-                x&2&&printf("%4.d|%c",P,!j*10,W|=P>>11),
+                x&2&&printf("%4.d|%c",P,!j*10,V-=P&2048),
                                               /* only the x=66 pass renders (bit 1 is
                                                  unique to 66). %4.d: a period with no
                                                  digits is precision ZERO (C99 7.19.6.1),
@@ -195,14 +202,17 @@ main(){
        orders the gate's V-read before the arm's V-write.) */
     V?M[i]=2<<rand(V=!G&&system("stty cbreak"))%2:0,
     s(84),s(66),                              /* probe both axes; s(66) redraws */
-    /* Game over?  V>W reads both flags at once: continue exactly when
-       movable and unwon (V=1, W=0); any 2048 prints WIN (movable or not),
-       stuck without one prints LOSE.  Otherwise read the next arrow into
-       k -- and V=0 rides the fd argument (stdin IS file descriptor 0),
-       resetting the motion flag just before the move whose flushes may
-       raise it, so the next dart routes honestly.  The COMMA between the
-       read and the recursion is a sequence point (a ternary's middle arm
-       is a full expression, commas welcome): the key is read into k
-       strictly before the decode reads k -- no evaluation-order luck. */
-    V>W?read(V=0,&k,3),main(s(k%664*3)):puts(W?"WIN":"LOSE");
+    /* Game over?  V>0 reads both channels at once: continue exactly on
+       V==1, movable and unwon; any 2048 has driven V negative and prints
+       WIN (movable or not); stuck without one is 0 and prints LOSE --
+       and at the select V is 0 or negative, so a bare V chooses the
+       string.  Otherwise read the next arrow into k -- and V=0 rides
+       the fd argument (stdin IS file descriptor 0), resetting the
+       motion flag just before the move whose flushes may raise it, so
+       the next dart and spawn answer honestly.  The COMMA between the
+       read and the recursion is a sequence point (a ternary's middle
+       arm is a full expression, commas welcome): the key is read into
+       k strictly before the decode reads k -- no evaluation-order
+       luck. */
+    V>0?read(V=0,&k,3),main(s(k%664*3)):puts(V?"WIN":"LOSE");
 }
