@@ -1,10 +1,11 @@
-/* 2048 in 348 bytes -- a complete terminal 2048.
+/* 2048 in 347 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
    Style: K&R implicit int. s()'s scratch variables (i,j,l,P,B) are GLOBALS
-   rather than params -- byte-neutral vs a long param list, and it lets one
-   of them, l, persist its value between calls (see the loop note below).
+   rather than params -- byte-neutral vs a long param list, and it lets
+   them persist between calls: l (see the loop note below) and k, whose
+   0 at exit is what tells the next call to set up its first line (see s).
 
    The board M[0..15] is the 4x4 grid in row-major order.  The probes
    never touch it: the one write site is unconditional, but on a probe
@@ -33,12 +34,12 @@
         s(66)   probe the horizontal axis -- and draw the board on the way
                 (its reflect 3 un-mirrors the descending scan, so rows
                 still print left-to-right)
-        s(k%664*3)  the real move
-   The decode reduces mod 664 and TRIPLES the residue: k%664*3 (the
-   cheap twin of k*3%1992, since kc mod cN = c(k mod N)).  Tripling
+        s(B%664*3)  the real move
+   The decode reduces mod 664 and TRIPLES the residue: B%664*3 (the
+   cheap twin of B*3%1992, since kc mod cN = c(k mod N)).  Tripling
    re-lands the arrow codes' arithmetic progression on a universe whose
    reflect pattern matches descending scans AND whose axis residues are
-   the strides themselves -- no plain k%N reaches either, and a census
+   the strides themselves -- no plain B%N reaches either, and a census
    of every two-operation decode form shows this one is unique.
    Moves are always ODD; the even sentinels 84/66 are dry runs.  What
    separates them from moves at the write site is not parity but bits
@@ -115,12 +116,22 @@ M[99],V,k,G,i,j,l,P,B;
    (~-~l is ~(l+1); l is always even, so l+1 == l|1 and this one unary
    ripple equals the two-mask form ~l&~1 everywhere it runs.)
 
-   The inner for uses all three slots: INIT computes the line base B once
-   (it is line-constant -- it squatted in the body for five generations
-   before anyone noticed it didn't need per-iteration recompute), the
-   BODY is a bare if around the one write site (statement grammar: no
-   ternary, no :0 arm), and the INCREMENT carries the hold update and P=1, which
-   thereby runs after the write every iteration, exactly as before. */
+   ONE loop runs all four lines.  Its body is a two-way ternary on k, the
+   write cursor: k==0 means "this line is done" (or "no line yet"), so
+   the else arm sets up the next line -- base B, both cursors to 4 -- and
+   the k!=0 arm is one cell step.  The loop runs while i|k: i counts
+   lines down (4 to 0, decremented as each line is set up) and k keeps
+   the loop alive through the last line after i has reached 0.  Every
+   call therefore exits with k==0, which is exactly what the next call's
+   first iteration needs to set up its first line (k is 0 at declaration
+   too -- and it is why the arrow is read into B, not k: see main).  The
+   INCREMENT carries the hold update and P=1, so it runs after every cell
+   step -- and harmlessly after a line setup (l is 0 and P is 1 there,
+   and it leaves them so).
+   The merge of the two loops is byte-neutral by itself; the byte it
+   frees is grammatical: a statement `if` could guard the write for
+   free, but a ternary arm cannot (`?...:0` costs two), so the write is
+   folded into its own condition with && -- see the step below. */
 s(x){
     V/=G=x%5;                                 /* the stride, extracted DIRECTLY: 4
                                                  (vertical) or 1 (horizontal); the row
@@ -132,28 +143,29 @@ s(x){
                                                  before the probes arm it; the render
                                                  pass (G=1) and moves (V already 0 from
                                                  the read) are untouched */
-    for(i=4;i--;)                             /* 4 lines; the row's \n is folded into
-                                                 the 4th cell's printf below */
-        /* j,k reset per line to 4 and COUNT DOWN -- the loop tests are the
-           bare j and k.  NOT l: every line ends with l==0 (the final flush
-           zeroes it via the mask), and l is a global, so that 0 carries
-           into the next line; re-zeroing is redundant.  The first call
-           inherits l==0 from the zero-init globals. */
-        for(B=4/G*i^x%9*G,j=k=4;k;
-            /* Increment slot: the new hold, phase-free (see header).
-               Reads: P&~(l+1) is 0 right after a merge, else P; an empty
-               cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
-               (bit 0 of ~(l+1) is 0 for even l).  Then P=1, unconditionally:
-               a read iteration overwrites it, a flush iteration inherits
-               exactly the 1 it needs -- so the flush arm below is empty. */
-            l=P?P&~-~l:l,P=1)
-            /* Decide whether to write.
-               Reads (j<4): fetch the cell, maybe print it, and write iff a
-               tile was read while one is held (P*l != 0) -- the emit.
-               Flushes (j>3): the arm is a bare 1 -- always write.  P is
-               already 1 (set by the increment) and the MOTION raise happens
-               at the write site, keyed on the value written. */
-            if(j
+    for(i=4;i|k;                              /* one loop for all 4 lines: i counts
+                                                 lines down, k keeps it alive through
+                                                 the last line (see header); the row's
+                                                 \n is folded into the 4th cell's printf */
+        /* Increment slot: the new hold, phase-free (see header).
+           Reads: P&~(l+1) is 0 right after a merge, else P; an empty
+           cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
+           (bit 0 of ~(l+1) is 0 for even l).  Then P=1, unconditionally:
+           a read iteration overwrites it, a flush iteration inherits
+           exactly the 1 it needs -- so the flush arm below is a bare 1. */
+        l=P?P&~-~l:l,P=1)
+        /* The body.  k!=0: one cell step, a single expression
+               V |= (should we write?) && !(the store)
+           -- the && short-circuits past the store exactly when a guarding
+           `if` would have skipped it, and a bare assignment is legal as
+           the middle arm of a ternary (the else arm is the line setup).
+           Reads (j>0): fetch the cell, maybe print it, and write iff a
+           tile was read while one is held (P*l != 0) -- the emit.
+           Flushes (j==0): the condition is a bare 1 -- always write.  P
+           is already 1 (set by the increment) and the MOTION raise
+           happens at the write site, keyed on the value written. */
+        k
+        ?   V|=(j
             ?   P=M[B^G*--j],                 /* read cell (--j comma-sequenced
                                                  before the printf args below) */
                 x&2&&printf("%4.d|%c",P,!j*10,V-=P&2048),
@@ -170,15 +182,23 @@ s(x){
                                                  expression slot, once per rendered cell. */
                 P*l
             :   1
-            /* The one write site, UNCONDITIONAL.  Real moves write the board
-               slot B^G*(--k); probes write the same slot lifted into scratch
-               by x*8&48 (32 for the vertical probe, 16 for the render -- no
-               arrow code has bits 1-2, so moves get 0), so k paces identically
-               on dry passes and nothing on the board is touched.  The value
-               written is the MOTION witness: at a flush it is the hold l, so
-               a stored 0 means this line compacted (gap or merge) -- and emit
-               or merge writes are never 0 -- hence V|=!(the store). */
-            )V|=!(M[B^G*--k|x*8&48]=l+P&~P);
+            /* The one write site, shared by moves and probes.  Real moves
+               write the board slot B^G*(--k); probes write the same slot
+               lifted into scratch by x*8&48 (32 for the vertical probe, 16
+               for the render -- no arrow code has bits 1-2, so moves get 0),
+               so k paces identically on dry passes and nothing on the board
+               is touched.  The value written is the MOTION witness: at a
+               flush it is the hold l, so a stored 0 means this line
+               compacted (gap or merge) -- and emit or merge writes are never
+               0 -- hence the !(the store) that V takes. */
+            )&&!(M[B^G*--k|x*8&48]=l+P&~P)
+        /* k==0: set up the next line -- its base B (row term XOR reflect
+           term, see header; --i picks the line) and both cursors to 4,
+           counting DOWN so the tests are the bare j and k.  NOT l: every
+           line ends with l==0 (the final flush zeroes it via the mask),
+           and l is a global, so that 0 carries into the next line; the
+           first call inherits l==0 from the zero-init globals. */
+        :   (B=4/G*--i^x%9*G,j=k=4);
 }
 
 /* main(): the turn loop.  rand() is left unseeded, so every game replays
@@ -189,12 +209,16 @@ s(x){
    after the probes.  Turn one needs no special casing, because two
    variables are 0 at declaration and a useful constant ever after:
      B is 3 after every render pass (last line, i=0, G=1, 66%9=3), so
-       read(V=0,&k,B) reads NOTHING on turn one (POSIX: a zero-byte read
-       returns 0 at once) and the three arrow bytes on every later turn;
+       read(V=0,&B,B) reads NOTHING on turn one (POSIX: a zero-byte read
+       returns 0 at once) and the three arrow bytes on every later turn --
+       into B itself: the count is fetched before the bytes land, and
+       B's top byte stays 0, so the decode sees exactly the escape;
      G is 1 after every render pass, so V>=G is trivially true on turn
        one and exactly V==1 afterwards.
-   k is dual-role: s()'s write cursor above, and the read buffer for the
-   3-byte arrow escape below. */
+   B is dual-role: s()'s line base above, and the read buffer for the
+   3-byte arrow escape below.  It cannot be k (as it once was): s's merged
+   loop needs k==0 at entry to set up its first line, and an arrow in k
+   would be taken for a live write cursor. */
 main(){
     /* The outer for.  CONDITION V>=G: continue exactly on V==1 (movable and
        unwon -- any 2048 has driven V negative, a stuck board leaves it 0),
@@ -208,10 +232,10 @@ main(){
        would be unsequenced -- undefined.  It lives in s, riding G.) */
     for(;V>=G;M[i]+=V+V<<rand()%2,s(84),s(66))
         /* The body: a second for whose INIT slot runs once per turn and
-           already owns its semicolon.  read() fills k with the arrow (and
+           already owns its semicolon.  read() fills B with the arrow (and
            resets the motion flag: V=0 rides the fd argument, stdin IS
            file descriptor 0) and returns the byte count, which selects:
-           3 -> THE MOVE, s(k%664*3) (the decode is explained in the
+           3 -> THE MOVE, s(B%664*3) (the decode is explained in the
            header); 0 (turn one, B==0) -> !system("stty cbreak"): the
            terminal setup runs exactly once, and its 0 exit status becomes
            the argument 1.  s(1) is a PHANTOM MOVE: a horizontal slide with
@@ -233,7 +257,7 @@ main(){
            points at.  The multiply, unlike &&, keeps M[i] evaluated, so the
            clear is emitted (and i assigned) on every roll.  The screen clear
            rides this rand's argument -- retries re-clear, invisibly. */
-        for(s(read(V=0,&k,B)?k%664*3:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
+        for(s(read(V=0,&B,B)?B%664*3:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
     /* Game over: the loop exited on V<G.  V is 0 (stuck) or negative (won),
        so a bare V chooses the string. */
     puts(V?"WIN":"LOSE");
