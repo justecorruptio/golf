@@ -1,4 +1,4 @@
-/* 2048 in 349 bytes -- a complete terminal 2048.
+/* 2048 in 348 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -6,12 +6,12 @@
    rather than params -- byte-neutral vs a long param list, and it lets one
    of them, l, persist its value between calls (see the loop note below).
 
-   The board M[0..15] is the 4x4 grid in row-major order; nothing ever
-   writes past M[15] (the rest of M[99] is free headroom).  The probes
-   write NOTHING at all: the one write site is gated on x%2, and probes
-   are even (see below) -- their slide runs dry, pure state-machine,
-   board untouched.  Full-board turns change nothing either: the spawn
-   adds 0 (see main).
+   The board M[0..15] is the 4x4 grid in row-major order.  The probes
+   never touch it: the one write site is unconditional, but on a probe
+   pass its index is lifted into scratch (M[16..47], see the write site
+   below), so their slide runs as a pure state machine over a throwaway
+   region.  Full-board turns change nothing either: the spawn adds 0
+   (see main).
 
    Everything runs through one routine, s(x): it slides and merges every
    line toward its start, in direction x. Conceptually the cell index is
@@ -40,9 +40,11 @@
    reflect pattern matches descending scans AND whose axis residues are
    the strides themselves -- no plain k%N reaches either, and a census
    of every two-operation decode form shows this one is unique.
-   Moves are always ODD, so parity (x%2) is the gate on the one write
-   site; the even sentinels 84/66 are dry-runs that write nothing.  The
-   one even value carrying bit 1 (66) is the pass that renders (x&2).
+   Moves are always ODD; the even sentinels 84/66 are dry runs.  What
+   separates them from moves at the write site is not parity but bits
+   1-2: 84 carries bit 2, 66 carries bit 1, and no arrow code carries
+   either, so x*8&48 is 32, 16 or 0 -- the scratch lift.  The one even
+   value carrying bit 1 (66) is the pass that renders (x&2).
 
    SPAWN: a dart.  Each turn throws one uniform-random dart i=rand()%16;
    an empty cell catches it and receives the new tile, an occupied cell
@@ -58,8 +60,9 @@
 
    STATUS: one variable, two channels.  V's LOW BIT is the motion
    flag; V's SIGN is the win flag.
-     Motion: events RAISE it -- the flush arm does V|=!l whenever a
-        line compacts (gap swallowed or merge made).  It is reset
+     Motion: events RAISE it -- the write site does V|=!(stored value)
+        whenever a flush writes out an EMPTY hold, i.e. whenever a line
+        compacts (gap swallowed or merge made).  It is reset
         twice per turn, each reset riding an argument that had to be
         there anyway:  V=0 rides read()'s fd (stdin IS fd 0) just
         before the move -- so at dart time V answers "did that move
@@ -104,7 +107,8 @@ M[99],V,k,G,i,j,l,P,B;
    Tiles are powers of two, which keeps the whole merge in bare bit-ops --
    and makes ONE write expression serve both emit and flush:  l+P&~P  is
    2l on a merge (l==P), l on a block, and degenerates to exactly l when
-   P is 0 or 1 (l is always even).  The flush arm forces P=1 -- and that
+   P is 0 or 1 (l is always even).  The loop increment sets P=1 after
+   every iteration (a read overwrites it, a flush inherits it) -- and that
    1, the only odd P in the program, then doubles as the PHASE FLAG: the
    hold update  P&~-~l  is P&~l untouched for even tiles but exactly 0
    at a flush, so the loop needs no second phase test.  Bit 0's fourth job.
@@ -115,7 +119,7 @@ M[99],V,k,G,i,j,l,P,B;
    (it is line-constant -- it squatted in the body for five generations
    before anyone noticed it didn't need per-iteration recompute), the
    BODY is a bare if around the one write site (statement grammar: no
-   ternary, no :0 arm), and the INCREMENT carries the hold update, which
+   ternary, no :0 arm), and the INCREMENT carries the hold update and P=1, which
    thereby runs after the write every iteration, exactly as before. */
 s(x){
     V/=G=x%5;                                 /* the stride, extracted DIRECTLY: 4
@@ -139,16 +143,16 @@ s(x){
             /* Increment slot: the new hold, phase-free (see header).
                Reads: P&~(l+1) is 0 right after a merge, else P; an empty
                cell (P==0) keeps l.  Flushes: P==1 makes the whole mask 0
-               (bit 0 of ~(l+1) is 0 for even l). */
-            l=P?P&~-~l:l)
+               (bit 0 of ~(l+1) is 0 for even l).  Then P=1, unconditionally:
+               a read iteration overwrites it, a flush iteration inherits
+               exactly the 1 it needs -- so the flush arm below is empty. */
+            l=P?P&~-~l:l,P=1)
             /* Decide whether to write.
                Reads (j<4): fetch the cell, maybe print it, and write iff a
                tile was read while one is held (P*l != 0) -- the emit.
-               Flushes (j>3): raise the MOTION flag (l==0 here means this
-               line compacted -- gap or merge -- so the board changed /
-               can change, whichever question V is currently answering),
-               force P=1 (also the arm's value, so flushes always write),
-               and write out the hold. */
+               Flushes (j>3): the arm is a bare 1 -- always write.  P is
+               already 1 (set by the increment) and the MOTION raise happens
+               at the write site, keyed on the value written. */
             if(j
             ?   P=M[B^G*--j],                 /* read cell (--j comma-sequenced
                                                  before the printf args below) */
@@ -165,14 +169,16 @@ s(x){
                                                  evaluates it and ignores it -- a free
                                                  expression slot, once per rendered cell. */
                 P*l
-            :   (V|=!l,P=1)
-            /* The one write site, gated on parity: real moves (x odd) write
-               the board slot B^G*(--k), probes (x even) write nothing --
-               their pass is pure state machine.  The decrement is spelled in
-               BOTH arms so k still counts every would-be write and the flush
-               phase paces identically on dry passes; that duplicate exactly
-               replaces the comma-split the ascending form needed. */
-            )x%2?M[B^G*--k]=l+P&~P:--k;
+            :   1
+            /* The one write site, UNCONDITIONAL.  Real moves write the board
+               slot B^G*(--k); probes write the same slot lifted into scratch
+               by x*8&48 (32 for the vertical probe, 16 for the render -- no
+               arrow code has bits 1-2, so moves get 0), so k paces identically
+               on dry passes and nothing on the board is touched.  The value
+               written is the MOTION witness: at a flush it is the hold l, so
+               a stored 0 means this line compacted (gap or merge) -- and emit
+               or merge writes are never 0 -- hence V|=!(the store). */
+            )V|=!(M[B^G*--k|x*8&48]=l+P&~P);
 }
 
 /* main(): the turn loop.  rand() is left unseeded, so every game replays
