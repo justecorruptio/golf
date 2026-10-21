@@ -1,4 +1,4 @@
-/* 2048 in 322 bytes -- a complete terminal 2048.
+/* 2048 in 320 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -33,9 +33,12 @@
    Every turn calls s three times:
         s(4)   probe the vertical axis (a dry run, see the lift below)
         s(1)   probe the horizontal axis AND draw the board on the way
-        s(j/7%6538)  the real move
+        s(j/7%6538|4)  the real move
+   -- and once more, s(4), on every dart that misses (see main).
    The decode j/7%6538 maps the three arrow bytes to 3846, 132, 2957,
-   5781 (Up, Down, Right, Left): residues 4, 13, 16, 1 mod 17.  Nothing
+   5781 (Up, Down, Right, Left): residues 4, 13, 16, 1 mod 17.  All
+   four have bit 2 set, so the |4 leaves them alone; it is there for an
+   UNREAD j, which is 0: 0|4 is the vertical probe's own code.  Nothing
    else about those numbers matters except that all exceed 68 (lift).
    The two probes are ONE DIGIT each because the residues 4 and 1 are
    themselves legal codes, and their smallness is exactly what the dry
@@ -50,11 +53,12 @@
 
    SPAWN: a dart.  Each turn throws one uniform-random dart k =
    rand()%16+1; an empty cell catches it and receives the new tile, an
-   occupied cell just re-rolls -- a bare for-loop that spins until it
-   lands (a fresh dart per spin, no key consumed, so exactly one tile
-   still appears per keypress).  The loop needs a certificate that an
-   empty cell exists, or a full board would spin forever -- that
-   certificate is V (below): V=0 happens only when the board is FULL.
+   occupied cell just re-rolls (a fresh dart per throw, no key consumed,
+   so exactly one tile still appears per keypress).  The main loop IS
+   the dart loop: its condition throws, and a miss simply comes round
+   again (see main).  The loop needs a certificate that an empty cell
+   exists, or a full board would spin forever -- that certificate is V
+   (below): V=0 happens only when the board is FULL.
    The gate is in the INDEX, not the condition: k = rand()%16*V+V is the
    board cell on a live turn and cell 0 on a full one -- and M[0] is
    not a board cell (no cursor product is 0 mod 17), never written by
@@ -76,8 +80,7 @@
         accumulates on top of it; at the endgame test V answers "can
         anything still move?".  Between a reset and its readers V is
         EXACTLY 0 or 1, never junk, which is what pays for the dart's
-        index gate and the spawn's bare shift -- and for the key read's
-        byte count, see below.
+        index gate and the spawn's bare shift.
      Win: the render call delivers it SUBTRACTIVELY as one of printf's
         extra arguments -- C evaluates and IGNORES arguments beyond the
         format string, so the slot is free: every cell the render pass
@@ -86,15 +89,12 @@
         the turn the first 2048 appears).  V-=2048 drives V negative and
         it STAYS negative -- later flushes only OR in bit 0 -- and no
         reset intervenes between the render and the test below.
-   The endgame test is V>=P.  P is 1 after every call of s (its loop
-   increment leaves it so) and 0 at declaration, so the test is exactly
-   V==1 (movable and unwon: any win is negative, stuck is 0) on every
-   turn but the first, where it is trivially true.  At the select V is
-   0 or negative, so a bare V picks WIN/LOSE.  V itself gates the key
-   read: read(0,&j,V*3) -- V is exactly 1 on every live turn (the loop
-   test just passed on V==1) and 0 at declaration, so turn one reads
-   NOTHING (POSIX: a zero-byte read returns 0 at once) and every later
-   turn reads the three arrow bytes. */
+   The endgame test is V>0, taken right after the two probes: 1 means
+   movable and unwon (read the next key), 0 means stuck, negative means
+   won.  At the select V is 0 or negative, so a bare V picks WIN/LOSE.
+   V starts the game at 1 -- V=!system("stty cbreak"), the terminal
+   setup's 0 exit status negated -- which is the truth about an empty
+   board: the first dart lands at once.  No phantom pass is needed. */
 
 M[99],V,k,j,l,P;
 
@@ -177,46 +177,45 @@ s(x){
             )&&!(M[k--*x%17|68/x]=l+P&~P);
 }
 
-/* main(): the turn loop.  rand() is left unseeded, so every game replays
-   identically.  The loop is a bare for: its CONDITION is the endgame
-   test, its BODY reads the key, makes the move and throws the dart, and
-   its INCREMENT spawns and probes -- test, read, move, dart, spawn,
-   probes, test: the turn cycle exactly, with the test right after the
-   probes.  k is dual-role: s()'s write cursor above (reset on every
-   entry) and the dart's cell below; j is s()'s read cursor above and
-   the 3-byte read buffer for the arrow escape below (it is 0 after every
-   call, so the top byte of the key is clean). */
+/* main(): ONE loop, and it is the dart loop.  rand() is left unseeded,
+   so every game replays identically.  Each pass of the condition throws
+   a dart; a MISS makes the condition true at once (the occupied cell),
+   so the body runs and the loop comes round to throw again; a HIT falls
+   through the || into the rest of the turn -- spawn, both probes, the
+   endgame test and, if the game is on, the key read -- whose value (the
+   3 bytes read) keeps the loop alive, so the body runs and makes the
+   move; then the next throw.  The body is s(j/7%6538|4): after a read,
+   j holds the arrow and this is THE MOVE; after a miss, j is 0 (every
+   call of s leaves it so) and this is s(4), a dry vertical probe --
+   harmless (writes scratch, prints nothing, draws no random number),
+   and it leaves V exactly as it found it: a miss proves an empty cell,
+   so some column has a gap, so the probe raises V back to 1.
+   k is dual-role: s()'s write cursor above (reset on every entry) and
+   the dart's cell below; j is s()'s read cursor above and the 3-byte
+   read buffer for the arrow escape below. */
 main(){
-    /* The outer for.  CONDITION V>=P (see header).  INCREMENT: the spawn
-       and the two probes.  The spawn is a plain STORE of V shifted by
-       one random bit plus one: the landing cell is empty by the dart's
-       contract, so on a live turn it receives 2 or 4 (50/50); on a full
-       board V is 0, k is 0, and the store writes a 0 into the dummy
-       cell M[0].  No gate, no else arm.  Then the vertical probe (which
-       zeroes V on entry, see s) and the render pass (which keeps it and
-       accumulates). */
-    for(;V>=P;M[k]=V<<rand()%2+1,s(4),s(1))
-        /* The body: a second for whose INIT slot runs once per turn and
-           already owns its semicolon.  read() fills j with the arrow and
-           returns the byte count, which selects: 3 -> THE MOVE,
-           s(j/7%6538), whose entry zeroes V; 0 (turn one, V==0) ->
-           system("stty cbreak")+4: the terminal setup
-           runs exactly once, and its 0 exit status plus 4 is the vertical
-           probe's own code.  That dry run over the empty board is the
-           PHANTOM MOVE: it writes nothing (lifted), prints nothing, and
-           its sixteen empty-cell flushes raise V -- exactly the
-           certificate the first dart needs.
-           Then the dart, as a bare retry loop: spin while the cell is
-           occupied.  V is exactly 0 or 1 here, and it gates the INDEX:
-           on a live turn k is rand()%16*1+1, a board cell, and the loop
-           spins until an empty one catches the dart; when V=0 the board
-           is provably FULL, k is rand()%16*0+0 = 0, and M[0] -- the dummy
-           cell, always empty -- catches it on the first roll, so the
-           spawn above stores its 0 off the board.  Each roll consumes one
-           rand() either way.  The screen clear rides this rand's argument
-           -- retries re-clear, invisibly. */
-        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16*V+V];);
-    /* Game over: the loop exited on V<P.  V is 0 (stuck) or negative (won),
-       so a bare V chooses the string. */
+    /* INIT: the terminal setup, exactly once, and V=1 from its exit
+       status (see header).
+       CONDITION, left of the ||: the dart.  V is exactly 0 or 1 here and
+       gates the INDEX: on a live turn k is rand()%16*1+1, a board cell,
+       and an occupied one makes the condition true -- a miss, come round
+       and throw again; when V=0 the board is provably FULL, k is
+       rand()%16*0+0 = 0, and M[0] -- the dummy cell, always empty --
+       catches the dart on the first throw.  Each throw consumes one
+       rand(), and the screen clear rides its argument: misses re-clear,
+       invisibly.
+       Right of the ||, on a hit: the spawn is a plain STORE of V shifted
+       by one random bit plus one -- the landing cell is empty by the
+       dart's contract, so on a live turn it receives 2 or 4 (50/50); on
+       a full board V is 0, k is 0, and the store writes a 0 into M[0].
+       No gate, no else arm.  Then the vertical probe (which zeroes V on
+       entry, see s) and the render pass (which keeps it and accumulates),
+       then the endgame test V>0: stuck or won makes the whole condition
+       0 and the loop ends; otherwise read() fills j with the arrow and
+       returns 3 -- the condition's value -- so the body runs the move. */
+    for(V=!system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(4),s(1),V>0&&read(0,&j,3));)
+        s(j/7%6538|4);
+    /* Game over: the loop ended on V<=0.  V is 0 (stuck) or negative
+       (won), so a bare V chooses the string. */
     puts(V?"WIN":"LOSE");
 }
