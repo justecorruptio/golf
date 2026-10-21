@@ -1,4 +1,4 @@
-/* 2048 in 350 bytes -- a complete terminal 2048.
+/* 2048 in 349 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -175,65 +175,60 @@ s(x){
             )x%2?M[B^G*--k]=l+P&~P:--k;
 }
 
-/* main(): one turn per entry, tail-recursing into the next.  rand() is
-   left unseeded, so every game replays identically.  k is TRIPLE-role:
-   s()'s write cursor above, the read buffer for the 3-byte arrow escape
-   below -- and, because of that, the turn-one detector: k is 0 only
-   before the first read (declared 0; every s() call ends with it at 0;
-   every read refills it with a nonzero arrow code). */
+/* main(): the turn loop.  rand() is left unseeded, so every game replays
+   identically.  The loop is a bare for: its CONDITION is the endgame
+   test, its BODY reads the key, makes the move and throws the dart, and
+   its INCREMENT spawns and probes -- test, read, move, dart, spawn,
+   probes, test: the turn cycle exactly, with the test sitting right
+   after the probes.  Turn one needs no special casing, because two
+   variables are 0 at declaration and a useful constant ever after:
+     B is 3 after every render pass (last line, i=0, G=1, 66%9=3), so
+       read(V=0,&k,B) reads NOTHING on turn one (POSIX: a zero-byte read
+       returns 0 at once) and the three arrow bytes on every later turn;
+     G is 1 after every render pass, so V>=G is trivially true on turn
+       one and exactly V==1 afterwards.
+   k is dual-role: s()'s write cursor above, and the read buffer for the
+   3-byte arrow escape below. */
 main(){
-    /* The frame opens in the dart's INIT slot, which runs exactly once per
-       entry and already owns its semicolon: a conditional with its
-       middle omitted (GNU C's a?:b, which yields a when a is nonzero --
-       the card already leans on GNU's \e escape).  On every turn but the
-       first, k holds the arrow just read by the previous frame, so the
-       decode k%664*3 (explained in the header) is nonzero and IS the
-       argument: the move.  On turn one k is 0, the decode is 0, and the
-       argument is !system("stty cbreak") instead -- the terminal setup
-       runs exactly once, with no separate turn-one gate, and its 0 exit
-       status becomes the argument 1.  s(1) is a PHANTOM MOVE: a horizontal slide with
-       reflect 1 (a permutation of each row), odd so it writes -- but on
-       the empty board it writes zeros onto zeros -- and with no render
-       bit, so nothing is printed.  Its four empty-line flushes raise V,
-       which is exactly the certificate the first dart needs; that is why
-       V has no declaration initializer.  (If stty ever failed, the
-       argument would be 0 and 4/G would divide by zero -- only possible
-       with no terminal attached.)
-       The dart, as a bare retry loop: spin while the board is live AND the
-       cell is occupied.  V is exactly 0 or 1 here (junk-free -- see header),
-       so the gate is a bare multiply: on live boards (V=1, the last move
-       saw an empty or opened one by merging -- or the phantom move's
-       raise on the virgin board) the condition is M[i] itself and the loop spins
-       exactly until an empty cell catches the dart; when V=0 the board is
-       provably FULL, the product dies on the first roll, and the spawn
-       below adds 0 to whatever occupied cell i points at.  The
-       multiply, unlike &&, keeps M[i] evaluated, so the clear is
-       emitted (and i assigned) on every roll.  (The old unified flag
-       carried junk bits that forced ~W%2&M[...] here -- the clean V buys
-       the short gate.)  The screen clear rides this rand's argument --
-       retries re-clear, invisibly. */
-    for(s(k%664*3?:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
-    /* The spawn, ADDITIVE and scaled by V: V+V is 2 on a live turn and
-       0 on a full board, shifted by one random bit -- so an empty
-       landing cell receives 2 or 4 (50/50) and an occupied one receives
-       +0.  No gate, no else arm; the rand is consumed every turn.  (Why
-       the V reset is NOT here: V+V reads V in this same expression, and
-       a V-write anywhere else in it would be unsequenced against that
-       read -- undefined behavior.  The reset lives in s instead, riding
-       G.) */
-    M[i]+=V+V<<rand()%2,
-    s(84),s(66),                              /* probe both axes; s(66) redraws */
-    /* Game over?  V>0 reads both channels at once: continue exactly on
-       V==1, movable and unwon; any 2048 has driven V negative and prints
-       WIN (movable or not); stuck without one is 0 and prints LOSE --
-       and at the select V is 0 or negative, so a bare V chooses the
-       string.  Otherwise read the next arrow into k -- and V=0 rides
-       the fd argument (stdin IS file descriptor 0), resetting the
-       motion flag just before the move whose flushes may raise it, so
-       the next dart and spawn answer honestly.  The read is the
-       recursion's ARGUMENT: a call's arguments are evaluated before the
-       call (a sequence point), so k is filled strictly before the next
-       frame's init slot decodes it -- and main ignores its parameter,
-       as it always has. */
-    V>0?main(read(V=0,&k,3)):puts(V?"WIN":"LOSE");
+    /* The outer for.  CONDITION V>=G: continue exactly on V==1 (movable and
+       unwon -- any 2048 has driven V negative, a stuck board leaves it 0),
+       except on turn one, where G is still 0.  INCREMENT: the spawn and the
+       two probes, run after each body.
+       The spawn, ADDITIVE and scaled by V: V+V is 2 on a live turn and 0
+       on a full board, shifted by one random bit -- so an empty landing
+       cell receives 2 or 4 (50/50) and an occupied one receives +0.  No
+       gate, no else arm.  (The V reset for the probes is NOT here: V+V
+       reads V in this same expression, and a V-write anywhere else in it
+       would be unsequenced -- undefined.  It lives in s, riding G.) */
+    for(;V>=G;M[i]+=V+V<<rand()%2,s(84),s(66))
+        /* The body: a second for whose INIT slot runs once per turn and
+           already owns its semicolon.  read() fills k with the arrow (and
+           resets the motion flag: V=0 rides the fd argument, stdin IS
+           file descriptor 0) and returns the byte count, which selects:
+           3 -> THE MOVE, s(k%664*3) (the decode is explained in the
+           header); 0 (turn one, B==0) -> !system("stty cbreak"): the
+           terminal setup runs exactly once, and its 0 exit status becomes
+           the argument 1.  s(1) is a PHANTOM MOVE: a horizontal slide with
+           reflect 1 (a permutation of each row), odd so it writes -- but on
+           the empty board it writes zeros onto zeros -- and with no render
+           bit, so nothing is printed.  Its four empty-line flushes raise V,
+           which is exactly the certificate the first dart needs; that is
+           why V has no declaration initializer.  (If stty ever failed, the
+           argument would be 0 and 4/G would divide by zero -- only possible
+           with no terminal attached.)
+           Then the dart, as a bare retry loop: spin while the board is live
+           AND the cell is occupied.  V is exactly 0 or 1 here (junk-free --
+           see header), so the gate is a bare multiply: on live boards (V=1,
+           the last move saw an empty or opened one by merging -- or the
+           phantom move's raise on the virgin board) the condition is M[i]
+           itself and the loop spins exactly until an empty cell catches the
+           dart; when V=0 the board is provably FULL, the product dies on the
+           first roll, and the spawn adds 0 to whatever occupied cell i
+           points at.  The multiply, unlike &&, keeps M[i] evaluated, so the
+           clear is emitted (and i assigned) on every roll.  The screen clear
+           rides this rand's argument -- retries re-clear, invisibly. */
+        for(s(read(V=0,&k,B)?k%664*3:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
+    /* Game over: the loop exited on V<G.  V is 0 (stuck) or negative (won),
+       so a bare V chooses the string. */
+    puts(V?"WIN":"LOSE");
 }

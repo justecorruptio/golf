@@ -12,8 +12,7 @@ s(x){
             )x%2?M[B^G*--k]=l+P&~P:--k;
 }
 main(){
-    for(s(k%664*3?:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
-    M[i]+=V+V<<rand()%2,
-    s(84),s(66),
-    V>0?main(read(V=0,&k,3)):puts(V?"WIN":"LOSE");
+    for(;V>=G;M[i]+=V+V<<rand()%2,s(84),s(66))
+        for(s(read(V=0,&k,B)?k%664*3:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
+    puts(V?"WIN":"LOSE");
 }
