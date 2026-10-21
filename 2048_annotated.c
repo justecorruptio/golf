@@ -1,4 +1,4 @@
-/* 2048 in 351 bytes -- a complete terminal 2048.
+/* 2048 in 350 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -183,13 +183,15 @@ s(x){
    every read refills it with a nonzero arrow code). */
 main(){
     /* The frame opens in the dart's INIT slot, which runs exactly once per
-       entry and already owns its semicolon: a ternary on k.  On every
-       turn but the first, k holds the arrow just read by the previous
-       frame, so the slot performs THE MOVE, s(k%664*3) (the decode is
-       explained in the header); on turn one k is 0, so the argument is
-       !system("stty cbreak") instead -- the terminal setup runs exactly
-       once, with no separate turn-one gate, and its 0 exit status becomes
-       the argument 1.  s(1) is a PHANTOM MOVE: a horizontal slide with
+       entry and already owns its semicolon: a conditional with its
+       middle omitted (GNU C's a?:b, which yields a when a is nonzero --
+       the card already leans on GNU's \e escape).  On every turn but the
+       first, k holds the arrow just read by the previous frame, so the
+       decode k%664*3 (explained in the header) is nonzero and IS the
+       argument: the move.  On turn one k is 0, the decode is 0, and the
+       argument is !system("stty cbreak") instead -- the terminal setup
+       runs exactly once, with no separate turn-one gate, and its 0 exit
+       status becomes the argument 1.  s(1) is a PHANTOM MOVE: a horizontal slide with
        reflect 1 (a permutation of each row), odd so it writes -- but on
        the empty board it writes zeros onto zeros -- and with no render
        bit, so nothing is printed.  Its four empty-line flushes raise V,
@@ -210,7 +212,7 @@ main(){
        carried junk bits that forced ~W%2&M[...] here -- the clean V buys
        the short gate.)  The screen clear rides this rand's argument --
        retries re-clear, invisibly. */
-    for(s(k?k%664*3:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
+    for(s(k%664*3?:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
     /* The spawn, ADDITIVE and scaled by V: V+V is 2 on a live turn and
        0 on a full board, shifted by one random bit -- so an empty
        landing cell receives 2 or 4 (50/50) and an occupied one receives
