@@ -1,4 +1,4 @@
-/* 2048 in 353 bytes -- a complete terminal 2048.
+/* 2048 in 352 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -175,11 +175,20 @@ s(x){
 }
 
 /* main(): one turn per entry, tail-recursing into the next.  rand() is
-   left unseeded, so every game replays identically.  k is dual-role:
-   s()'s write cursor above, and the read buffer for the 3-byte arrow
-   escape below. */
+   left unseeded, so every game replays identically.  k is TRIPLE-role:
+   s()'s write cursor above, the read buffer for the 3-byte arrow escape
+   below -- and, because of that, the turn-one detector: k is 0 only
+   before the first read (declared 0; every s() call ends with it at 0;
+   every read refills it with a nonzero arrow code). */
 main(){
-    /* The dart, as a bare retry loop: spin while the board is live AND the
+    /* The frame opens in the dart's INIT slot, which runs exactly once per
+       entry and already owns its semicolon: a ternary on k.  On every
+       turn but the first, k holds the arrow just read by the previous
+       frame, so the slot performs THE MOVE, s(k%664*3) (the decode is
+       explained in the header); on turn one k is 0, so the slot performs
+       the terminal setup instead -- system("stty cbreak") exactly once,
+       with no separate turn-one gate.  Either arm's value is discarded.
+       The dart, as a bare retry loop: spin while the board is live AND the
        cell is occupied.  V is exactly 0 or 1 here (junk-free -- see header),
        so the gate is a bare multiply: on live boards (V=1, the last move
        saw an empty or opened one by merging -- or the declaration's V=1 on
@@ -192,20 +201,16 @@ main(){
        carried junk bits that forced ~W%2&M[...] here -- the clean V buys
        the short gate.)  The screen clear rides this rand's argument --
        retries re-clear, invisibly. */
-    for(;M[i=rand(puts("\e[H\e[J"))%16]*V;);
+    for(k?s(k%664*3):system("stty cbreak");M[i=rand(puts("\e[H\e[J"))%16]*V;);
     /* The spawn, ADDITIVE and scaled by V: V+V is 2 on a live turn and
        0 on a full board, shifted by one random bit -- so an empty
        landing cell receives 2 or 4 (50/50) and an occupied one receives
-       +0.  No gate, no else arm; the rand is consumed every turn.  The
-       terminal setup rides this rand's ignored argument: G is 0 only on
-       the very first turn (s has never run), so G||system() forks the
-       shell exactly once, and its value is simply discarded.  (Why the
-       V reset is NOT here: V+V reads V in this same expression, and a
-       V-write inside the argument would be unsequenced against it --
-       undefined behavior.  The reset lives in s instead, riding G.  k
-       can't serve as the turn-1 gate: descending cursors end every line
-       at 0.) */
-    M[i]+=V+V<<rand(G||system("stty cbreak"))%2,
+       +0.  No gate, no else arm; the rand is consumed every turn.  (Why
+       the V reset is NOT here: V+V reads V in this same expression, and
+       a V-write anywhere else in it would be unsequenced against that
+       read -- undefined behavior.  The reset lives in s instead, riding
+       G.) */
+    M[i]+=V+V<<rand()%2,
     s(84),s(66),                              /* probe both axes; s(66) redraws */
     /* Game over?  V>0 reads both channels at once: continue exactly on
        V==1, movable and unwon; any 2048 has driven V negative and prints
@@ -214,10 +219,10 @@ main(){
        string.  Otherwise read the next arrow into k -- and V=0 rides
        the fd argument (stdin IS file descriptor 0), resetting the
        motion flag just before the move whose flushes may raise it, so
-       the next dart and spawn answer honestly.  The COMMA between the
-       read and the recursion is a sequence point (a ternary's middle
-       arm is a full expression, commas welcome): the key is read into
-       k strictly before the decode reads k -- no evaluation-order
-       luck. */
-    V>0?read(V=0,&k,3),main(s(k%664*3)):puts(V?"WIN":"LOSE");
+       the next dart and spawn answer honestly.  The read is the
+       recursion's ARGUMENT: a call's arguments are evaluated before the
+       call (a sequence point), so k is filled strictly before the next
+       frame's init slot decodes it -- and main ignores its parameter,
+       as it always has. */
+    V>0?main(read(V=0,&k,3)):puts(V?"WIN":"LOSE");
 }
