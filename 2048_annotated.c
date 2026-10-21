@@ -1,4 +1,4 @@
-/* 2048 in 352 bytes -- a complete terminal 2048.
+/* 2048 in 351 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -69,9 +69,10 @@
         on entry (V/=G, G=4: see s) -- so at the endgame test V
         answers "can anything still move?".  Between a reset and its readers V is
         EXACTLY 0 or 1, never junk, which is what pays for the dart's
-        two-char multiply gate.  The declaration's V=1 covers turn
-        one: the first dart must land although no move preceded it
-        (16 empty cells make their own certificate).
+        two-char multiply gate.  Turn one is covered by a PHANTOM
+        MOVE (see main): a slide over the empty board whose empty-line
+        flushes raise V before the first dart, so no declaration
+        initializer is needed.
      Win: the render call delivers it SUBTRACTIVELY as one of
         printf's extra arguments -- C evaluates and IGNORES arguments
         beyond the format string, so the slot is free: every cell the
@@ -94,7 +95,7 @@
    is 0.  At the select V is 0 or negative, so a bare V picks
    WIN/LOSE. */
 
-M[99],V=1,k,G,i,j,l,P,B;
+M[99],V,k,G,i,j,l,P,B;
 
 /* s(x): slide + merge every line in direction x.
        i = current line     j = read cursor     k = write cursor
@@ -185,14 +186,22 @@ main(){
        entry and already owns its semicolon: a ternary on k.  On every
        turn but the first, k holds the arrow just read by the previous
        frame, so the slot performs THE MOVE, s(k%664*3) (the decode is
-       explained in the header); on turn one k is 0, so the slot performs
-       the terminal setup instead -- system("stty cbreak") exactly once,
-       with no separate turn-one gate.  Either arm's value is discarded.
+       explained in the header); on turn one k is 0, so the argument is
+       !system("stty cbreak") instead -- the terminal setup runs exactly
+       once, with no separate turn-one gate, and its 0 exit status becomes
+       the argument 1.  s(1) is a PHANTOM MOVE: a horizontal slide with
+       reflect 1 (a permutation of each row), odd so it writes -- but on
+       the empty board it writes zeros onto zeros -- and with no render
+       bit, so nothing is printed.  Its four empty-line flushes raise V,
+       which is exactly the certificate the first dart needs; that is why
+       V has no declaration initializer.  (If stty ever failed, the
+       argument would be 0 and 4/G would divide by zero -- only possible
+       with no terminal attached.)
        The dart, as a bare retry loop: spin while the board is live AND the
        cell is occupied.  V is exactly 0 or 1 here (junk-free -- see header),
        so the gate is a bare multiply: on live boards (V=1, the last move
-       saw an empty or opened one by merging -- or the declaration's V=1 on
-       the virgin board) the condition is M[i] itself and the loop spins
+       saw an empty or opened one by merging -- or the phantom move's
+       raise on the virgin board) the condition is M[i] itself and the loop spins
        exactly until an empty cell catches the dart; when V=0 the board is
        provably FULL, the product dies on the first roll, and the spawn
        below adds 0 to whatever occupied cell i points at.  The
@@ -201,7 +210,7 @@ main(){
        carried junk bits that forced ~W%2&M[...] here -- the clean V buys
        the short gate.)  The screen clear rides this rand's argument --
        retries re-clear, invisibly. */
-    for(k?s(k%664*3):system("stty cbreak");M[i=rand(puts("\e[H\e[J"))%16]*V;);
+    for(s(k?k%664*3:!system("stty cbreak"));M[i=rand(puts("\e[H\e[J"))%16]*V;);
     /* The spawn, ADDITIVE and scaled by V: V+V is 2 on a live turn and
        0 on a full board, shifted by one random bit -- so an empty
        landing cell receives 2 or 4 (50/50) and an occupied one receives
