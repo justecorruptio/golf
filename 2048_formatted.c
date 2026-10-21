@@ -1,5 +1,6 @@
 M[99],V,k,j,l,P;
 s(x){
+    V/=x;
     for(j=k=16;k;
         l=P?P&~-~l:l,P=1)
         V|=(j&3|k==j
@@ -10,7 +11,7 @@ s(x){
             )&&!(M[k--*x%17|68/x]=l+P&~P);
 }
 main(){
-    for(;V>=P;M[k]+=V+V<<rand()%2,s(4,V=0),s(1))
-        for(s(read(V=0,&j,P*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16+1]*V;);
+    for(;V>=P;M[k]+=V+V<<rand()%2,s(4),s(1))
+        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16+1]*V;);
     puts(V?"WIN":"LOSE");
 }

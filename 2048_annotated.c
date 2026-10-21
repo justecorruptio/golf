@@ -1,4 +1,4 @@
-/* 2048 in 325 bytes -- a complete terminal 2048.
+/* 2048 in 324 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -61,19 +61,18 @@
    V's SIGN is the win flag.
      Motion: events RAISE it -- the write site does V|=!(stored value)
         whenever a flush writes out an EMPTY hold, i.e. whenever a line
-        compacts (gap swallowed or merge made).  It is reset twice per
-        turn, each reset riding an argument that had to be there
-        anyway: V=0 rides read()'s fd (stdin IS fd 0) just before the
-        move -- so at dart time V answers "did that move pass see an
+        compacts (gap swallowed or merge made).  It is reset by s itself
+        on entry, V/=x: every real move code is large, so a move starts
+        from 0 -- at dart time V answers "did that move pass see an
         empty cell or a merge?" (either one leaves an empty cell
         behind, so V=1 certifies the dart lands; V=0 means the board is
-        FULL) -- and V=0 rides the vertical probe's call as a second,
-        ignored argument, s(4,V=0): all arguments are evaluated before
-        the call, so the probe starts from 0 and the horizontal probe
+        FULL) -- and the vertical probe (x=4) starts from 0 too, while
+        the render pass (x=1) keeps what the vertical probe found and
         accumulates on top of it; at the endgame test V answers "can
         anything still move?".  Between a reset and its readers V is
         EXACTLY 0 or 1, never junk, which is what pays for the dart's
-        two-char multiply gate.
+        two-char multiply gate -- and for the key read's byte count,
+        see below.
      Win: the render call delivers it SUBTRACTIVELY as one of printf's
         extra arguments -- C evaluates and IGNORES arguments beyond the
         format string, so the slot is free: every cell the render pass
@@ -86,10 +85,11 @@
    increment leaves it so) and 0 at declaration, so the test is exactly
    V==1 (movable and unwon: any win is negative, stuck is 0) on every
    turn but the first, where it is trivially true.  At the select V is
-   0 or negative, so a bare V picks WIN/LOSE.  P's 0-then-1 life also
-   gates the key read: read(V=0,&j,P*3) reads NOTHING on turn one
-   (POSIX: a zero-byte read returns 0 at once) and the three arrow
-   bytes ever after. */
+   0 or negative, so a bare V picks WIN/LOSE.  V itself gates the key
+   read: read(0,&j,V*3) -- V is exactly 1 on every live turn (the loop
+   test just passed on V==1) and 0 at declaration, so turn one reads
+   NOTHING (POSIX: a zero-byte read returns 0 at once) and every later
+   turn reads the three arrow bytes. */
 
 M[99],V,k,j,l,P;
 
@@ -122,6 +122,9 @@ M[99],V,k,j,l,P;
    which is the end of the last line.  Every call thus leaves j==k==0,
    and resets both to 16 on entry. */
 s(x){
+    V/=x;                                     /* the motion reset (see header): 0 for
+                                                 a move or the vertical probe, kept
+                                                 for the render pass (x=1) */
     for(j=k=16;k;
         /* Increment slot: the new hold, phase-free (see header).
            Reads: P&~(l+1) is 0 right after a merge, else P; an empty
@@ -179,16 +182,15 @@ main(){
        and the two probes.  The spawn, ADDITIVE and scaled by V: V+V is 2
        on a live turn and 0 on a full board, shifted by one random bit --
        so an empty landing cell receives 2 or 4 (50/50) and an occupied
-       one receives +0.  No gate, no else arm.  Then the vertical probe,
-       starting from V=0 (the reset rides the call: second argument,
-       evaluated before the call, ignored by s), then the render pass,
-       which accumulates. */
-    for(;V>=P;M[k]+=V+V<<rand()%2,s(4,V=0),s(1))
+       one receives +0.  No gate, no else arm.  Then the vertical probe
+       (which zeroes V on entry, see s) and the render pass (which keeps
+       it and accumulates). */
+    for(;V>=P;M[k]+=V+V<<rand()%2,s(4),s(1))
         /* The body: a second for whose INIT slot runs once per turn and
-           already owns its semicolon.  read() fills j with the arrow (and
-           resets the motion flag: V=0 rides the fd argument) and returns
-           the byte count, which selects: 3 -> THE MOVE, s(j/7%6538); 0
-           (turn one, P==0) -> system("stty cbreak")+4: the terminal setup
+           already owns its semicolon.  read() fills j with the arrow and
+           returns the byte count, which selects: 3 -> THE MOVE,
+           s(j/7%6538), whose entry zeroes V; 0 (turn one, V==0) ->
+           system("stty cbreak")+4: the terminal setup
            runs exactly once, and its 0 exit status plus 4 is the vertical
            probe's own code.  That dry run over the empty board is the
            PHANTOM MOVE: it writes nothing (lifted), prints nothing, and
@@ -203,7 +205,7 @@ main(){
            at.  The multiply, unlike &&, keeps M[k] evaluated, so the clear
            is emitted (and k assigned) on every roll.  The screen clear
            rides this rand's argument -- retries re-clear, invisibly. */
-        for(s(read(V=0,&j,P*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16+1]*V;);
+        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16+1]*V;);
     /* Game over: the loop exited on V<P.  V is 0 (stuck) or negative (won),
        so a bare V chooses the string. */
     puts(V?"WIN":"LOSE");
