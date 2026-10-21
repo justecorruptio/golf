@@ -1,4 +1,4 @@
-/* 2048 in 320 bytes -- a complete terminal 2048.
+/* 2048 in 318 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -89,14 +89,19 @@
         the turn the first 2048 appears).  V-=2048 drives V negative and
         it STAYS negative -- later flushes only OR in bit 0 -- and no
         reset intervenes between the render and the test below.
-   The endgame test is V>0, taken right after the two probes: 1 means
-   movable and unwon (read the next key), 0 means stuck, negative means
-   won.  At the select V is 0 or negative, so a bare V picks WIN/LOSE.
-   V starts the game at 1 -- V=!system("stty cbreak"), the terminal
-   setup's 0 exit status negated -- which is the truth about an empty
-   board: the first dart lands at once.  No phantom pass is needed. */
+   The endgame test is folded into the key read, taken right after the
+   two probes: read(V-1,&j,3).  V is 1 when the game is on -- movable
+   and unwon -- and then the descriptor is 0, stdin, and the arrow's
+   three bytes arrive; V is 0 (stuck) or negative (won) otherwise, and
+   then the descriptor is -1 or less, which no process has open, so
+   read() fails at once with EBADF: no byte is asked for, nothing
+   blocks, and the -1 it returns is not > 0, so the loop ends.  At the
+   select V is 0 or negative, so a bare V picks WIN/LOSE.
+   V is DECLARED 1, which is the truth about an empty board: the first
+   dart lands at once.  No phantom pass is needed, and nothing in the
+   game needs V to be 0 before the first throw. */
 
-M[99],V,k,j,l,P;
+M[99],V=1,k,j,l,P;
 
 /* s(x): slide + merge every line in direction x.
        j = read cursor     k = write cursor     (both 16 down to 1,
@@ -182,9 +187,9 @@ s(x){
    a dart; a MISS makes the condition true at once (the occupied cell),
    so the body runs and the loop comes round to throw again; a HIT falls
    through the || into the rest of the turn -- spawn, both probes, the
-   endgame test and, if the game is on, the key read -- whose value (the
-   3 bytes read) keeps the loop alive, so the body runs and makes the
-   move; then the next throw.  The body is s(j/7%6538|4): after a read,
+   key read, which is also the endgame test (see header) -- its value,
+   the 3 bytes read, keeps the loop alive, so the body runs and makes
+   the move; then the next throw.  The body is s(j/7%6538|4): after a read,
    j holds the arrow and this is THE MOVE; after a miss, j is 0 (every
    call of s leaves it so) and this is s(4), a dry vertical probe --
    harmless (writes scratch, prints nothing, draws no random number),
@@ -194,8 +199,8 @@ s(x){
    the dart's cell below; j is s()'s read cursor above and the 3-byte
    read buffer for the arrow escape below. */
 main(){
-    /* INIT: the terminal setup, exactly once, and V=1 from its exit
-       status (see header).
+    /* INIT: the terminal setup, exactly once (V is already 1, see
+       header).
        CONDITION, left of the ||: the dart.  V is exactly 0 or 1 here and
        gates the INDEX: on a live turn k is rand()%16*1+1, a board cell,
        and an occupied one makes the condition true -- a miss, come round
@@ -210,10 +215,11 @@ main(){
        a full board V is 0, k is 0, and the store writes a 0 into M[0].
        No gate, no else arm.  Then the vertical probe (which zeroes V on
        entry, see s) and the render pass (which keeps it and accumulates),
-       then the endgame test V>0: stuck or won makes the whole condition
-       0 and the loop ends; otherwise read() fills j with the arrow and
-       returns 3 -- the condition's value -- so the body runs the move. */
-    for(V=!system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(4),s(1),V>0&&read(0,&j,3));)
+       then the key read on descriptor V-1 (see header): stuck or won
+       makes it fail at once, so the whole condition is 0 and the loop
+       ends; otherwise it fills j with the arrow and returns 3, which
+       is > 0, so the body runs the move. */
+    for(system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(4),s(1),read(V-1,&j,3)>0);)
         s(j/7%6538|4);
     /* Game over: the loop ended on V<=0.  V is 0 (stuck) or negative
        (won), so a bare V chooses the string. */
