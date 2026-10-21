@@ -1,4 +1,4 @@
-/* 2048 in 324 bytes -- a complete terminal 2048.
+/* 2048 in 323 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -52,10 +52,13 @@
    lands (a fresh dart per spin, no key consumed, so exactly one tile
    still appears per keypress).  The loop needs a certificate that an
    empty cell exists, or a full board would spin forever -- that
-   certificate is V (below): V=0 happens only when the board is FULL,
-   and then the multiply gate kills the condition on the first roll and
-   the spawn, which is ADDITIVE and scaled by V, adds 0 to an occupied
-   cell -- nothing is thrown away, nothing changes.
+   certificate is V (below): V=0 happens only when the board is FULL.
+   The gate is in the INDEX, not the condition: k = rand()%16*V+V is the
+   board cell on a live turn and cell 0 on a full one -- and M[0] is
+   not a board cell (no cursor product is 0 mod 17), never written by
+   anything, so it is empty, catches the dart on the first roll, and
+   the spawn then stores V<<(random bit + 1) there: a 0.  Nothing is
+   thrown away, nothing on the board changes, M[0] stays 0 forever.
 
    STATUS: one variable, two channels.  V's LOW BIT is the motion flag;
    V's SIGN is the win flag.
@@ -71,8 +74,8 @@
         accumulates on top of it; at the endgame test V answers "can
         anything still move?".  Between a reset and its readers V is
         EXACTLY 0 or 1, never junk, which is what pays for the dart's
-        two-char multiply gate -- and for the key read's byte count,
-        see below.
+        index gate and the spawn's bare shift -- and for the key read's
+        byte count, see below.
      Win: the render call delivers it SUBTRACTIVELY as one of printf's
         extra arguments -- C evaluates and IGNORES arguments beyond the
         format string, so the slot is free: every cell the render pass
@@ -179,13 +182,14 @@ s(x){
    call, so the top byte of the key is clean). */
 main(){
     /* The outer for.  CONDITION V>=P (see header).  INCREMENT: the spawn
-       and the two probes.  The spawn, ADDITIVE and scaled by V: V+V is 2
-       on a live turn and 0 on a full board, shifted by one random bit --
-       so an empty landing cell receives 2 or 4 (50/50) and an occupied
-       one receives +0.  No gate, no else arm.  Then the vertical probe
-       (which zeroes V on entry, see s) and the render pass (which keeps
-       it and accumulates). */
-    for(;V>=P;M[k]+=V+V<<rand()%2,s(4),s(1))
+       and the two probes.  The spawn is a plain STORE of V shifted by
+       one random bit plus one: the landing cell is empty by the dart's
+       contract, so on a live turn it receives 2 or 4 (50/50); on a full
+       board V is 0, k is 0, and the store writes a 0 into the dummy
+       cell M[0].  No gate, no else arm.  Then the vertical probe (which
+       zeroes V on entry, see s) and the render pass (which keeps it and
+       accumulates). */
+    for(;V>=P;M[k]=V<<rand()%2+1,s(4),s(1))
         /* The body: a second for whose INIT slot runs once per turn and
            already owns its semicolon.  read() fills j with the arrow and
            returns the byte count, which selects: 3 -> THE MOVE,
@@ -196,16 +200,16 @@ main(){
            PHANTOM MOVE: it writes nothing (lifted), prints nothing, and
            its sixteen empty-cell flushes raise V -- exactly the
            certificate the first dart needs.
-           Then the dart, as a bare retry loop: spin while the board is live
-           AND the cell is occupied.  V is exactly 0 or 1 here, so the gate
-           is a bare multiply: on live boards the condition is M[k] itself
-           and the loop spins until an empty cell catches the dart; when
-           V=0 the board is provably FULL, the product dies on the first
-           roll, and the spawn adds 0 to whatever occupied cell k points
-           at.  The multiply, unlike &&, keeps M[k] evaluated, so the clear
-           is emitted (and k assigned) on every roll.  The screen clear
-           rides this rand's argument -- retries re-clear, invisibly. */
-        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16+1]*V;);
+           Then the dart, as a bare retry loop: spin while the cell is
+           occupied.  V is exactly 0 or 1 here, and it gates the INDEX:
+           on a live turn k is rand()%16*1+1, a board cell, and the loop
+           spins until an empty one catches the dart; when V=0 the board
+           is provably FULL, k is rand()%16*0+0 = 0, and M[0] -- the dummy
+           cell, always empty -- catches it on the first roll, so the
+           spawn above stores its 0 off the board.  Each roll consumes one
+           rand() either way.  The screen clear rides this rand's argument
+           -- retries re-clear, invisibly. */
+        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16*V+V];);
     /* Game over: the loop exited on V<P.  V is 0 (stuck) or negative (won),
        so a bare V chooses the string. */
     puts(V?"WIN":"LOSE");

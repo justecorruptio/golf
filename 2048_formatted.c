@@ -11,7 +11,7 @@ s(x){
             )&&!(M[k--*x%17|68/x]=l+P&~P);
 }
 main(){
-    for(;V>=P;M[k]+=V+V<<rand()%2,s(4),s(1))
-        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16+1]*V;);
+    for(;V>=P;M[k]=V<<rand()%2+1,s(4),s(1))
+        for(s(read(0,&j,V*3)?j/7%6538:system("stty cbreak")+4);M[k=rand(puts("\e[H\e[J"))%16*V+V];);
     puts(V?"WIN":"LOSE");
 }
