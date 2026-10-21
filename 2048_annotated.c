@@ -1,8 +1,10 @@
-/* 2048 in 323 bytes -- a complete terminal 2048.
+/* 2048 in 322 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
-   Style: K&R implicit int.  s()'s scratch variables (j,k,l,P) are
+   Style: K&R implicit int, plus one GNU C extension: the omitted-middle
+   conditional  a?:b  (a if a is nonzero, else b; a evaluated once).
+   s()'s scratch variables (j,k,l,P) are
    GLOBALS rather than params, and every one of them is relied on to
    persist between calls: l ends every call at 0, k and j at 0, P at 1
    (see s and main for who reads what).
@@ -146,15 +148,19 @@ s(x){
         V|=(j&3|k==j
             ?   P=M[j--*x%17],                /* read cell (j-- comma-sequenced
                                                  before the printf args below) */
-                x<2&&printf("%4.d|%c",P,j&3?0:10,V-=P&2048),
+                x<2&&printf("%4.d|%c",P,j&3?:10,V-=P&2048),
                                               /* only the x=1 pass renders.  %4.d: a
                                                  period with no digits is precision
                                                  ZERO (C99 7.19.6.1), so this is %4.0d
                                                  -- BLANKS for 0.  The %c rides the row
                                                  \n: j has just stepped onto a multiple
                                                  of 4 exactly at the 4th cell of a row,
-                                                 so it is \n there and a NUL (which the
-                                                 terminal ignores) before.  The LAST
+                                                 so j&3 is 0 there and the elvis yields
+                                                 10 -- and before it the elvis yields
+                                                 j&3 itself, the bytes 3, 2, 1 (ETX, STX,
+                                                 SOH), which every terminal discards
+                                                 unrendered, like the NUL they replace.
+                                                 The LAST
                                                  argument is the WIN DELIVERY (see
                                                  header): printf evaluates it and
                                                  ignores it -- a free expression slot,
