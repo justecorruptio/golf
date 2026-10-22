@@ -1,4 +1,4 @@
-/* 2048 in 317 bytes -- a complete terminal 2048.
+/* 2048 in 316 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -31,7 +31,7 @@
    bookkeeping is gone.
 
    Every turn calls s three times:
-        s(4)   probe the vertical axis (a dry run, see the lift below)
+        s(V=4) probe the vertical axis (a dry run, see the lift below)
         s(1)   probe the horizontal axis AND draw the board on the way
         s(j/7%6538|4)  the real move
    -- and once more, s(4), on every dart that misses (see main).
@@ -70,17 +70,24 @@
    V's SIGN is the win flag.
      Motion: events RAISE it -- the write site does V|=!(stored value)
         whenever a flush writes out an EMPTY hold, i.e. whenever a line
-        compacts (gap swallowed or merge made).  It is reset by s itself
-        on entry, V/=x: every real move code is large, so a move starts
-        from 0 -- at dart time V answers "did that move pass see an
-        empty cell or a merge?" (either one leaves an empty cell
-        behind, so V=1 certifies the dart lands; V=0 means the board is
-        FULL) -- and the vertical probe (x=4) starts from 0 too, while
-        the render pass (x=1) keeps what the vertical probe found and
-        accumulates on top of it; at the endgame test V answers "can
-        anything still move?".  Between a reset and its readers V is
-        EXACTLY 0 or 1, never junk, which is what pays for the dart's
-        index gate and the spawn's bare shift.
+        compacts (gap swallowed or merge made).  s itself never resets
+        it: the two callers that need a fresh start pay for one in main,
+        each with a value they need anyway.  A move starts from 0 -- the
+        key read's descriptor V-=5 leaves exactly 0 behind (see below) --
+        so at dart time V answers "did that move pass see an empty cell
+        or a merge?" (either one leaves an empty cell behind, so V=1
+        certifies the dart lands; V=0 means the board is FULL).  The
+        vertical probe starts from 4: it is called s(V=4), its own code
+        doubling as the base, because the spawn may just have filled the
+        last cell and the 1 left by the move would then be a lie.  The
+        render pass (x=1) keeps what the vertical probe found and
+        accumulates on top of it, so at the endgame test V is 4 (nothing
+        can move) or 5 (something can).  The miss-path probe needs no
+        reset: a miss proves an empty cell, so the 1 it inherits is
+        already the right answer and the OR cannot change it.  Between a
+        reset and its readers V is EXACTLY 0 or 1 (4 or 5 after the
+        probes), never junk, which is what pays for the dart's index
+        gate and the spawn's bare shift.
      Win: the render call delivers it SUBTRACTIVELY as one of printf's
         extra arguments -- C evaluates and IGNORES arguments beyond the
         format string, so the slot is free: every cell the render pass
@@ -90,14 +97,16 @@
         it STAYS negative -- later flushes only OR in bit 0 -- and no
         reset intervenes between the render and the test below.
    The endgame test is folded into the key read, taken right after the
-   two probes: ~read(V-1,&j,3).  V is 1 when the game is on -- movable
-   and unwon -- and then the descriptor is 0, stdin, and the arrow's
-   three bytes arrive; V is 0 (stuck) or negative (won) otherwise, and
-   then the descriptor is -1 or less, which no process has open, so
-   read() fails at once with EBADF: no byte is asked for, nothing
-   blocks, and it returns -1 -- the one value whose complement is 0,
-   so the ~ turns exactly that failure into "loop over".  At the
-   select V is 0 or negative, so a bare V picks WIN/LOSE.
+   two probes: ~read(V-=5,&j,3).  V is 5 when the game is on -- movable
+   and unwon -- and V-=5 makes it 0: the descriptor is 0, stdin, the
+   arrow's three bytes arrive, and the move that follows starts from a
+   clean 0.  V is 4 (stuck) or negative (won) otherwise, and then the
+   descriptor is -1 or less, which no process has open, so read()
+   fails at once with EBADF: no byte is asked for, nothing blocks, and
+   it returns -1 -- the one value whose complement is 0, so the ~
+   turns exactly that failure into "loop over".  At the select V is -1
+   (stuck) or far below (won), so ~V -- zero exactly for -1 -- picks
+   WIN/LOSE.
    V is DECLARED 1, which is the truth about an empty board: the first
    dart lands at once.  No phantom pass is needed, and nothing in the
    game needs V to be 0 before the first throw. */
@@ -133,9 +142,6 @@ M[99],V=1,k,j,l,P;
    which is the end of the last line.  Every call thus leaves j==k==0,
    and resets both to 16 on entry. */
 s(x){
-    V/=x;                                     /* the motion reset (see header): 0 for
-                                                 a move or the vertical probe, kept
-                                                 for the render pass (x=1) */
     for(j=k=16;k;
         /* Increment slot: the new hold, phase-free (see header).
            Reads: P&~(l+1) is 0 right after a merge, else P; an empty
@@ -194,8 +200,9 @@ s(x){
    j holds the arrow and this is THE MOVE; after a miss, j is 0 (every
    call of s leaves it so) and this is s(4), a dry vertical probe --
    harmless (writes scratch, prints nothing, draws no random number),
-   and it leaves V exactly as it found it: a miss proves an empty cell,
-   so some column has a gap, so the probe raises V back to 1.
+   and it leaves V exactly as it found it: s has no entry reset, and
+   the OR can only confirm the 1 it was handed (a miss proves an empty
+   cell, so some column has a gap -- the probe would raise it anyway).
    k is dual-role: s()'s write cursor above (reset on every entry) and
    the dart's cell below; j is s()'s read cursor above and the 3-byte
    read buffer for the arrow escape below. */
@@ -214,16 +221,18 @@ main(){
        by one random bit plus one -- the landing cell is empty by the
        dart's contract, so on a live turn it receives 2 or 4 (50/50); on
        a full board V is 0, k is 0, and the store writes a 0 into M[0].
-       No gate, no else arm.  Then the vertical probe (which zeroes V on
-       entry, see s) and the render pass (which keeps it and accumulates),
-       then the key read on descriptor V-1 (see header): stuck or won
-       makes it return -1, whose complement is 0, so the whole condition
-       is 0 and the loop ends; otherwise it fills j with the arrow and
-       returns a byte count, whose complement is nonzero, so the body
-       runs the move. */
-    for(system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(4),s(1),~read(V-1,&j,3));)
+       No gate, no else arm.  Then the vertical probe, called s(V=4) so
+       that it starts from its own code as a clean base (see header),
+       and the render pass (which keeps it and accumulates: V is now 4
+       or 5, or negative on a win), then the key read on descriptor
+       V-=5 (see header): stuck or won makes it return -1, whose
+       complement is 0, so the whole condition is 0 and the loop ends;
+       otherwise V is left at 0, j is filled with the arrow, and the
+       byte count's complement is nonzero, so the body runs the move
+       from a clean V. */
+    for(system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(V=4),s(1),~read(V-=5,&j,3));)
         s(j/7%6538|4);
-    /* Game over: the loop ended on V<=0.  V is 0 (stuck) or negative
-       (won), so a bare V chooses the string. */
-    puts(V?"WIN":"LOSE");
+    /* Game over: the read failed.  V is -1 (stuck: 4, less 5) or far
+       below (won), so ~V -- zero exactly for -1 -- chooses the string. */
+    puts(~V?"WIN":"LOSE");
 }
