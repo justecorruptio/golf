@@ -1,4 +1,4 @@
-/* 2048 in 314 bytes -- a complete terminal 2048.
+/* 2048 in 313 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -101,24 +101,25 @@
         reset and its readers V is EXACTLY 0 or 1 (4 or 5 after the
         probes), never junk, which is what pays for the dart's &&
         gate and the spawn's bare shift.
-     Win: the render call delivers it SUBTRACTIVELY as one of printf's
+     Win: the render call delivers it MULTIPLICATIVELY as one of printf's
         extra arguments -- C evaluates and IGNORES arguments beyond the
         format string, so the slot is free: every cell the render pass
-        reads lands in P, and P&2048 is 2048 exactly for a 2048 tile (no
-        lesser tile has bit 11, and 4096 can never exist: the game ends
-        the turn the first 2048 appears).  V-=2048 drives V negative and
-        it STAYS negative -- later flushes only OR in bit 0 -- and no
-        reset intervenes between the render and the test below.
+        reads lands in P, and V*=P<2e3 multiplies V by 0 exactly for a
+        2048 tile (2e3 is the float constant 2000, three characters: no
+        lesser tile exceeds it, and 4096 can never exist, since the game
+        ends the turn the first 2048 appears).  V drops to 0 and STAYS
+        at most 1 -- later flushes only OR in bit 0 -- and no reset
+        intervenes between the render and the test below.
    The endgame test is folded into the key read, taken right after the
    two probes: ~read(V-=5,&j,3).  V is 5 when the game is on -- movable
    and unwon -- and V-=5 makes it 0: the descriptor is 0, stdin, the
    arrow's three bytes arrive, and the move that follows starts from a
-   clean 0.  V is 4 (stuck) or negative (won) otherwise, and then the
-   descriptor is -1 or less, which no process has open, so read()
+   clean 0.  V is 4 (stuck) or 0/1 (won) otherwise, and then the
+   descriptor is -1, -5 or -4, which no process has open, so read()
    fails at once with EBADF: no byte is asked for, nothing blocks, and
    it returns -1 -- the one value whose complement is 0, so the ~
    turns exactly that failure into "loop over".  At the select V is -1
-   (stuck) or far below (won), so ~V -- zero exactly for -1 -- picks
+   (stuck) or -5/-4 (won), so ~V -- zero exactly for -1 -- picks
    WIN/LOSE.
    V is DECLARED 1, which is the truth about an empty board: the first
    dart lands at once.  No phantom pass is needed, and nothing in the
@@ -173,7 +174,7 @@ s(x){
         V|=(j&3|k==j
             ?   P=M[j--*x%17],                /* read cell (j-- comma-sequenced
                                                  before the printf args below) */
-                x<2&&printf("%4.d|%c",P,j&3?:10,V-=P&2048),
+                x<2&&printf("%4.d|%c",P,j&3?:10,V*=P<2e3),
                                               /* only the x=1 pass renders.  %4.d: a
                                                  period with no digits is precision
                                                  ZERO (C99 7.19.6.1), so this is %4.0d
@@ -242,7 +243,7 @@ main(){
        the idle pass churns it, and leaves it 0).  No gate, no else arm.  Then the vertical probe, called s(V=4) so
        that it starts from its own code as a clean base (see header),
        and the render pass (which keeps it and accumulates: V is now 4
-       or 5, or negative on a win), then the key read on descriptor
+       or 5, or 0/1 on a win), then the key read on descriptor
        V-=5 (see header): stuck or won makes it return -1, whose
        complement is 0, so the whole condition is 0 and the loop ends;
        otherwise V is left at 0, j is filled with the arrow, and the
@@ -250,7 +251,8 @@ main(){
        from a clean V. */
     for(system("stty cbreak");V&&M[k=rand()%16+1]||(M[k]=2<<rand(puts("\e[H\e[J"))%2,s(V=4),s(1),~read(V-=5,&j,3));)
         s(j/44|9452);
-    /* Game over: the read failed.  V is -1 (stuck: 4, less 5) or far
-       below (won), so ~V -- zero exactly for -1 -- chooses the string. */
+    /* Game over: the read failed.  V is -1 (stuck: 4, less 5) or -5/-4
+       (won: 0/1, less 5), so ~V -- zero exactly for -1 -- chooses the
+       string. */
     puts(~V?"WIN":"LOSE");
 }
