@@ -11,6 +11,6 @@ s(x){
 }
 main(){
     for(system("stty cbreak");V&&M[k=rand()%16+1]||(M[k]=2<<rand(puts("\e[H\e[J"))%2,s(V=4),s(1),~read(V-=5,&j,3));)
-        s(j/7%6538|4);
+        s(j/44|9452);
     puts(~V?"WIN":"LOSE");
 }

@@ -1,4 +1,4 @@
-/* 2048 in 315 bytes -- a complete terminal 2048.
+/* 2048 in 314 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -33,13 +33,17 @@
    Every turn calls s three times:
         s(V=4) probe the vertical axis (a dry run, see the lift below)
         s(1)   probe the horizontal axis AND draw the board on the way
-        s(j/7%6538|4)  the real move
-   -- and once more, s(4), on every dart that misses (see main).
-   The decode j/7%6538 maps the three arrow bytes to 3846, 132, 2957,
-   5781 (Up, Down, Right, Left): residues 4, 13, 16, 1 mod 17.  All
-   four have bit 2 set, so the |4 leaves them alone; it is there for an
-   UNREAD j, which is 0: 0|4 is the vertical probe's own code.  Nothing
-   else about those numbers matters except that all exceed 68 (lift).
+        s(j/44|9452)  the real move
+   -- and once more, s(9452), on every dart that misses (see main).
+   The decode j/44|9452 maps the three arrow bytes to 97516, 108286,
+   108527, 110076 (Up, Down, Right, Left): residues 4, 13, 16, 1 mod
+   17.  Nothing else about those numbers matters except that all
+   exceed 68 (lift).  The |9452 is for an UNREAD j, which is 0: 9452 is
+   a multiple of 17, and a code that is 0 mod 17 makes every cursor
+   product 0, so that pass reads and writes nothing but M[0], the junk
+   cell (see SPAWN) -- an IDLE pass that leaves the board, the screen
+   and the random stream alone.  (One byte cheaper than j/7%6538|4,
+   whose idle code 4 was the vertical probe itself.)
    The two probes are ONE DIGIT each because the residues 4 and 1 are
    themselves legal codes, and their smallness is exactly what the dry
    run keys on.
@@ -64,10 +68,12 @@
    && short-circuits, no dart is thrown at all, and the turn falls
    straight through the || to the probes.  k is then whatever s left it
    -- 0 -- so the spawn's store lands in M[0], which is not a board cell
-   (no cursor product is 0 mod 17) and is READ by nothing: the dart only
-   ever indexes 1..16 and s never touches it.  So M[0] is a junk cell
-   the full-board turn may scribble on, which is what lets the spawn be
-   the bare 2<<(random bit) instead of a V-gated one.
+   (no cursor product is 0 mod 17 for a move, a probe or the render) and
+   nothing that matters reads it: the dart only ever indexes 1..16, and
+   the one pass that touches it is the idle pass (code 9452, above),
+   which reads and writes M[0] alone and leaves it 0.  So M[0] is a junk
+   cell the full-board turn may scribble on, which is what lets the
+   spawn be the bare 2<<(random bit) instead of a V-gated one.
    The screen clear rides the SPAWN's rand() argument, so it is printed
    exactly once per turn, right before the probes and the render; a
    missed throw prints nothing at all.
@@ -88,9 +94,10 @@
         last cell and the 1 left by the move would then be a lie.  The
         render pass (x=1) keeps what the vertical probe found and
         accumulates on top of it, so at the endgame test V is 4 (nothing
-        can move) or 5 (something can).  The miss-path probe needs no
-        reset: a miss proves an empty cell, so the 1 it inherits is
-        already the right answer and the OR cannot change it.  Between a
+        can move) or 5 (something can).  The miss-path idle pass needs
+        no reset either: flushing zeros into M[0] ORs a 1 into V, but a
+        miss proves an empty cell, so the 1 it inherits is already the
+        right answer and the OR cannot change it.  Between a
         reset and its readers V is EXACTLY 0 or 1 (4 or 5 after the
         probes), never junk, which is what pays for the dart's &&
         gate and the spawn's bare shift.
@@ -204,13 +211,15 @@ s(x){
    probes, the key read, which is also the endgame test (see header) --
    its value,
    the 3 bytes read, keeps the loop alive, so the body runs and makes
-   the move; then the next throw.  The body is s(j/7%6538|4): after a read,
+   the move; then the next throw.  The body is s(j/44|9452): after a read,
    j holds the arrow and this is THE MOVE; after a miss, j is 0 (every
-   call of s leaves it so) and this is s(4), a dry vertical probe --
-   harmless (writes scratch, prints nothing, draws no random number),
-   and it leaves V exactly as it found it: s has no entry reset, and
-   the OR can only confirm the 1 it was handed (a miss proves an empty
-   cell, so some column has a gap -- the probe would raise it anyway).
+   call of s leaves it so) and this is s(9452), the idle pass -- 9452 is
+   0 mod 17, so every cell it reads or writes is M[0], the junk cell:
+   harmless (touches no board cell, prints nothing, draws no random
+   number), and it leaves V exactly as it found it: s has no entry
+   reset, and the OR can only confirm the 1 it was handed (a miss
+   proves an empty cell; the zeros it flushes into M[0] raise nothing
+   new).
    k is dual-role: s()'s write cursor above (reset on every entry) and
    the dart's cell below (on a full board, the 0 s left in it: the junk
    cell); j is s()'s read cursor above and the 3-byte
@@ -229,8 +238,8 @@ main(){
        the spawn, a plain STORE of 2 shifted by one random bit -- 2 or 4
        (50/50) into the landing cell, empty by the dart's contract.  On
        a full board no dart was thrown, k is the 0 that s left behind,
-       and the junk lands in M[0], the cell nothing reads.  No gate, no
-       else arm.  Then the vertical probe, called s(V=4) so
+       and the junk lands in M[0], the cell no board pass reads (only
+       the idle pass churns it, and leaves it 0).  No gate, no else arm.  Then the vertical probe, called s(V=4) so
        that it starts from its own code as a clean base (see header),
        and the render pass (which keeps it and accumulates: V is now 4
        or 5, or negative on a win), then the key read on descriptor
@@ -240,7 +249,7 @@ main(){
        byte count's complement is nonzero, so the body runs the move
        from a clean V. */
     for(system("stty cbreak");V&&M[k=rand()%16+1]||(M[k]=2<<rand(puts("\e[H\e[J"))%2,s(V=4),s(1),~read(V-=5,&j,3));)
-        s(j/7%6538|4);
+        s(j/44|9452);
     /* Game over: the read failed.  V is -1 (stuck: 4, less 5) or far
        below (won), so ~V -- zero exactly for -1 -- chooses the string. */
     puts(~V?"WIN":"LOSE");
