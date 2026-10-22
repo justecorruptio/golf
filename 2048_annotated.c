@@ -1,4 +1,4 @@
-/* 2048 in 318 bytes -- a complete terminal 2048.
+/* 2048 in 317 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -90,12 +90,13 @@
         it STAYS negative -- later flushes only OR in bit 0 -- and no
         reset intervenes between the render and the test below.
    The endgame test is folded into the key read, taken right after the
-   two probes: read(V-1,&j,3).  V is 1 when the game is on -- movable
+   two probes: ~read(V-1,&j,3).  V is 1 when the game is on -- movable
    and unwon -- and then the descriptor is 0, stdin, and the arrow's
    three bytes arrive; V is 0 (stuck) or negative (won) otherwise, and
    then the descriptor is -1 or less, which no process has open, so
    read() fails at once with EBADF: no byte is asked for, nothing
-   blocks, and the -1 it returns is not > 0, so the loop ends.  At the
+   blocks, and it returns -1 -- the one value whose complement is 0,
+   so the ~ turns exactly that failure into "loop over".  At the
    select V is 0 or negative, so a bare V picks WIN/LOSE.
    V is DECLARED 1, which is the truth about an empty board: the first
    dart lands at once.  No phantom pass is needed, and nothing in the
@@ -216,10 +217,11 @@ main(){
        No gate, no else arm.  Then the vertical probe (which zeroes V on
        entry, see s) and the render pass (which keeps it and accumulates),
        then the key read on descriptor V-1 (see header): stuck or won
-       makes it fail at once, so the whole condition is 0 and the loop
-       ends; otherwise it fills j with the arrow and returns 3, which
-       is > 0, so the body runs the move. */
-    for(system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(4),s(1),read(V-1,&j,3)>0);)
+       makes it return -1, whose complement is 0, so the whole condition
+       is 0 and the loop ends; otherwise it fills j with the arrow and
+       returns a byte count, whose complement is nonzero, so the body
+       runs the move. */
+    for(system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(4),s(1),~read(V-1,&j,3));)
         s(j/7%6538|4);
     /* Game over: the loop ended on V<=0.  V is 0 (stuck) or negative
        (won), so a bare V chooses the string. */
