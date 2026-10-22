@@ -1,4 +1,4 @@
-/* 2048 in 316 bytes -- a complete terminal 2048.
+/* 2048 in 315 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -59,12 +59,18 @@
    again (see main).  The loop needs a certificate that an empty cell
    exists, or a full board would spin forever -- that certificate is V
    (below): V=0 happens only when the board is FULL.
-   The gate is in the INDEX, not the condition: k = rand()%16*V+V is the
-   board cell on a live turn and cell 0 on a full one -- and M[0] is
-   not a board cell (no cursor product is 0 mod 17), never written by
-   anything, so it is empty, catches the dart on the first roll, and
-   the spawn then stores V<<(random bit + 1) there: a 0.  Nothing is
-   thrown away, nothing on the board changes, M[0] stays 0 forever.
+   The gate is the && in front of the dart: V&&M[k=rand()%16+1].  On a
+   live turn V is 1 and the dart is thrown; on a full board V is 0, the
+   && short-circuits, no dart is thrown at all, and the turn falls
+   straight through the || to the probes.  k is then whatever s left it
+   -- 0 -- so the spawn's store lands in M[0], which is not a board cell
+   (no cursor product is 0 mod 17) and is READ by nothing: the dart only
+   ever indexes 1..16 and s never touches it.  So M[0] is a junk cell
+   the full-board turn may scribble on, which is what lets the spawn be
+   the bare 2<<(random bit) instead of a V-gated one.
+   The screen clear rides the SPAWN's rand() argument, so it is printed
+   exactly once per turn, right before the probes and the render; a
+   missed throw prints nothing at all.
 
    STATUS: one variable, two channels.  V's LOW BIT is the motion flag;
    V's SIGN is the win flag.
@@ -86,7 +92,7 @@
         reset: a miss proves an empty cell, so the 1 it inherits is
         already the right answer and the OR cannot change it.  Between a
         reset and its readers V is EXACTLY 0 or 1 (4 or 5 after the
-        probes), never junk, which is what pays for the dart's index
+        probes), never junk, which is what pays for the dart's &&
         gate and the spawn's bare shift.
      Win: the render call delivers it SUBTRACTIVELY as one of printf's
         extra arguments -- C evaluates and IGNORES arguments beyond the
@@ -191,10 +197,12 @@ s(x){
 
 /* main(): ONE loop, and it is the dart loop.  rand() is left unseeded,
    so every game replays identically.  Each pass of the condition throws
-   a dart; a MISS makes the condition true at once (the occupied cell),
-   so the body runs and the loop comes round to throw again; a HIT falls
-   through the || into the rest of the turn -- spawn, both probes, the
-   key read, which is also the endgame test (see header) -- its value,
+   a dart, if V says a cell is free; a MISS makes the condition true at
+   once (the occupied cell), so the body runs and the loop comes round
+   to throw again; a HIT -- or a full board, which throws nothing --
+   falls through the || into the rest of the turn -- clear, spawn, both
+   probes, the key read, which is also the endgame test (see header) --
+   its value,
    the 3 bytes read, keeps the loop alive, so the body runs and makes
    the move; then the next throw.  The body is s(j/7%6538|4): after a read,
    j holds the arrow and this is THE MOVE; after a miss, j is 0 (every
@@ -204,24 +212,25 @@ s(x){
    the OR can only confirm the 1 it was handed (a miss proves an empty
    cell, so some column has a gap -- the probe would raise it anyway).
    k is dual-role: s()'s write cursor above (reset on every entry) and
-   the dart's cell below; j is s()'s read cursor above and the 3-byte
+   the dart's cell below (on a full board, the 0 s left in it: the junk
+   cell); j is s()'s read cursor above and the 3-byte
    read buffer for the arrow escape below. */
 main(){
     /* INIT: the terminal setup, exactly once (V is already 1, see
        header).
-       CONDITION, left of the ||: the dart.  V is exactly 0 or 1 here and
-       gates the INDEX: on a live turn k is rand()%16*1+1, a board cell,
-       and an occupied one makes the condition true -- a miss, come round
-       and throw again; when V=0 the board is provably FULL, k is
-       rand()%16*0+0 = 0, and M[0] -- the dummy cell, always empty --
-       catches the dart on the first throw.  Each throw consumes one
-       rand(), and the screen clear rides its argument: misses re-clear,
-       invisibly.
-       Right of the ||, on a hit: the spawn is a plain STORE of V shifted
-       by one random bit plus one -- the landing cell is empty by the
-       dart's contract, so on a live turn it receives 2 or 4 (50/50); on
-       a full board V is 0, k is 0, and the store writes a 0 into M[0].
-       No gate, no else arm.  Then the vertical probe, called s(V=4) so
+       CONDITION, left of the ||: V && the dart.  V is exactly 0 or 1
+       here.  On a live turn it is 1, k becomes rand()%16+1, a board
+       cell, and an occupied one makes the condition true -- a miss,
+       come round and throw again, silently (the clear is not here).
+       When V=0 the board is provably FULL: the && stops before the
+       dart, nothing is drawn from rand(), and the turn goes right.
+       Right of the ||: first the screen clear, riding the spawn's
+       rand() argument (once per turn, always before the render); then
+       the spawn, a plain STORE of 2 shifted by one random bit -- 2 or 4
+       (50/50) into the landing cell, empty by the dart's contract.  On
+       a full board no dart was thrown, k is the 0 that s left behind,
+       and the junk lands in M[0], the cell nothing reads.  No gate, no
+       else arm.  Then the vertical probe, called s(V=4) so
        that it starts from its own code as a clean base (see header),
        and the render pass (which keeps it and accumulates: V is now 4
        or 5, or negative on a win), then the key read on descriptor
@@ -230,7 +239,7 @@ main(){
        otherwise V is left at 0, j is filled with the arrow, and the
        byte count's complement is nonzero, so the body runs the move
        from a clean V. */
-    for(system("stty cbreak");M[k=rand(puts("\e[H\e[J"))%16*V+V]||(M[k]=V<<rand()%2+1,s(V=4),s(1),~read(V-=5,&j,3));)
+    for(system("stty cbreak");V&&M[k=rand()%16+1]||(M[k]=2<<rand(puts("\e[H\e[J"))%2,s(V=4),s(1),~read(V-=5,&j,3));)
         s(j/7%6538|4);
     /* Game over: the read failed.  V is -1 (stuck: 4, less 5) or far
        below (won), so ~V -- zero exactly for -1 -- chooses the string. */
