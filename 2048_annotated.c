@@ -1,4 +1,4 @@
-/* 2048 in 305 bytes -- a complete terminal 2048.
+/* 2048 in 304 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -69,14 +69,16 @@
    as on a real move.
 
    SPAWN: a dart.  Each turn throws one uniform-random dart V =
-   rand()%16+1; an empty cell catches it and receives the new tile, an
+   rand()%k+1 -- k is the write cursor, which the tail has just reset
+   to 16, so this is rand()%16+1 spelled with the 16 it already paid
+   for; an empty cell catches it and receives the new tile, an
    occupied cell just re-rolls (a fresh dart per throw, no key consumed,
    so exactly one tile still appears per keypress).  The tail IS the
    dart loop: a miss sets x=2, the idle pass runs, and the tail comes
    round to throw again.  The loop needs a certificate that an empty
    cell exists, or a full board would spin forever -- that certificate
    is V (below): V=0 happens only when the board is FULL.
-   The gate is the && in front of the dart: V&&M[V=rand()%16+1].  On a
+   The gate is the && in front of the dart: V&&M[V=rand()%k+1].  On a
    live turn V is nonzero and the dart is thrown -- INTO V, which the
    spawn then indexes; on a full board V is 0, the && short-circuits,
    no dart is thrown at all, and the spawn's store lands in M[V] = M[0],
@@ -172,7 +174,7 @@ main(V){
                  failed read leaves P at 1 and gives 0: game over.
          else    (a move, the idle pass, or the start)  ->  the dart.
                  V && the dart: on a live turn V is nonzero, V becomes
-                 rand()%16+1, a board cell, and an occupied one is a
+                 rand()%k+1, a board cell, and an occupied one is a
                  MISS: x=2, the idle pass, then come round and throw
                  again, silently (the clear is not here).  When V=0 the
                  board is provably FULL: the && stops before the dart,
@@ -198,7 +200,7 @@ main(V){
             x=x^4
                 ?   x==1
                     ?   read(V-=5,&P,3),P/7%6538
-                    :   V&&M[V=rand()%16+1]
+                    :   V&&M[V=rand()%k+1]
                         ?   2
                         :   (M[V]=2<<rand(puts("\e[H\e[J"))%2,V=4)
                 :   1);

@@ -5,7 +5,7 @@ main(V){
             x=x^4
                 ?   x==1
                     ?   read(V-=5,&P,3),P/7%6538
-                    :   V&&M[V=rand()%16+1]
+                    :   V&&M[V=rand()%k+1]
                         ?   2
                         :   (M[V]=2<<rand(puts("\e[H\e[J"))%2,V=4)
                 :   1);
