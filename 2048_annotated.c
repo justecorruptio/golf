@@ -1,4 +1,4 @@
-/* 2048 in 304 bytes -- a complete terminal 2048.
+/* 2048 in 303 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -20,51 +20,57 @@
    all: a cell is  M[c*x%17]  for a cursor c in 16..1 and the pass code
    x.  Multiplying by 4 modulo 17 is a QUARTER TURN of the 4x4 (4*4 ==
    16 == -1 mod 17), so one cursor counting 16 down to 1 walks the board
-   in ROWS when x is +-1 and in COLUMNS when x is +-4 (mod 17), and the
-   sign reverses every line -- which is the slide direction:
-        x ==  4 (mod 17)   columns, first cell 13   UP
-        x == 13            columns, first cell  4   DOWN
-        x == 16            rows,    first cell  1   RIGHT
-        x ==  1            rows,    first cell 16   LEFT
+   in ROWS when x is +-r and in COLUMNS when x is +-4r (mod 17), where
+   r is the stride of the pass that DRAWS the screen -- the layout is
+   whatever the render pass says it is, and ANY nonzero stride r is a
+   valid one.  Here r is 7 (see PASSES for why), so:
+        x == 11 (mod 17)   columns, first cell  6   UP
+        x ==  6            columns, first cell 11   DOWN
+        x == 10            rows,    first cell  7   RIGHT
+        x ==  7            rows,    first cell 10   LEFT
    (The compaction target of a line is the first cell it visits.)  The
-   screen is drawn by the x=1 pass, cells 16,15,14,13 on the top row,
-   left to right; so screen row R, column C is cell 16-4R-C, and the
-   table above reads off the picture.
+   screen is drawn by the x=7 pass, cells 10,3,13,6 on the top row, left
+   to right; so screen row R, column C is cell 7*(16-4R-C) mod 17, and
+   the table above reads off the picture.
    Lines are simply "every four cursor steps", so the loop needs no
    line counter, no line base, no per-line setup and no exit test beyond
    the cursor itself.
 
    PASSES.  Every turn runs three passes, and the CODE x of the pass
    that just ended tells the tail what comes next:
-        x == 4   the vertical probe (a dry run, see the lift) is done
-                 -> x=1
-        x == 1   the render pass (horizontal probe + drawing) is done
+        x == 6   the vertical probe (a dry run, see the lift) is done
+                 -> clear the screen; x = what puts() returned, 7
+        x has bit 1 (that is x == 7, the only such code)
+                 the render pass (horizontal probe + drawing) is done
                  -> read the key, x = its decode (or 0: game over)
         else     a move (or the idle pass, or nothing yet: x starts 0)
-                 -> throw the dart; a HIT spawns and sets x=4,
-                    a MISS sets x=2, the IDLE pass (below)
-   The decode P/7%6538 maps the three arrow bytes to 3846, 132, 2957,
-   5781 (Up, Down, Right, Left): residues 4, 13, 16, 1 mod 17.  Nothing
-   else about those numbers matters except that all exceed 68 (lift)
-   and none is 1 or 4.  If the read FAILS the buffer P keeps the 1 it
-   always holds between passes, and 1/7%6538 is 0: x=0 is the value of
+                 -> throw the dart; a HIT spawns and sets x=6,
+                    a MISS sets x=4, the IDLE pass (below)
+   The screen clear is  puts("\e[H\e[J"), which returns the number of
+   bytes it wrote, 7; that 7 is the render code, and the layout follows
+   from it (above).  The decode P/7&8125 maps the three arrow bytes to
+   5672, 6840, 7949, 925 (Up, Down, Right, Left): residues 11, 6, 10, 7
+   mod 17.  Three more things about those numbers matter: all exceed
+   119 (lift), none is a multiple of 7 (render gate), and none has bit
+   1 set -- nor do 0 and 4 -- so "the render just ended" is the two-
+   character test x&2.  If the read FAILS the buffer P keeps the 1 it
+   always holds between passes, and 1/7&8125 is 0: x=0 is the value of
    the whole condition, so the loop ends -- the key read is also the
-   endgame test (see STATUS).  No idle value is needed from the decode
-   any more, because a missed dart never reaches it: that is what made
-   the 8-character decode legal again.
-   The two probes are ONE DIGIT each because the residues 4 and 1 are
-   themselves legal codes, and their smallness is exactly what the dry
-   run keys on.  The IDLE code 2 is a dry pass too: it reads the board
-   with stride 2 and writes its slides into M[34..50], scratch; it
-   prints nothing, draws no random number, and leaves the board alone.
-   Its only effect is a pass's worth of bookkeeping (j=k=0, l=0, P=1)
-   and ORing a 1 into V, which a miss has already made nonzero.
+   endgame test (see STATUS).  No idle value is needed from the decode,
+   because a missed dart never reaches it.
+   The probe code 6 is the DOWN residue (any vertical pass will do for
+   a probe) and is also the status base (STATUS).  The IDLE code 4 is a
+   dry pass too: it reads the board with stride 4 and writes its slides
+   into M[29..31], scratch; it prints nothing, draws no random number,
+   and leaves the board alone.  Its only effect is a pass's worth of
+   bookkeeping (j=k=0, l=0, P=1) and ORing a 1 into V, which a miss has
+   already made nonzero.
 
-   DRY RUNS: the one write site ORs the index with 68/x.  For the moves
-   (x > 68) that is 0 and the board is written; for the render pass
-   (x=1) it is 68, for the vertical probe (x=4) it is 17 and for the
-   idle pass (x=2) it is 34, so their slides are written into
-   M[17..84] -- write-only scratch (the probes READ the board, unlifted,
+   DRY RUNS: the one write site ORs the index with 119/x.  For the
+   moves (x > 119) that is 0 and the board is written; for the render
+   pass (x=7) it is 17, for the vertical probe (x=6) it is 19 and for
+   the idle pass (x=4) it is 29, so their slides are written into
+   M[17..31] -- write-only scratch (the probes READ the board, unlifted,
    and must), and the board is untouched while the cursor paces exactly
    as on a real move.
 
@@ -74,7 +80,7 @@
    for; an empty cell catches it and receives the new tile, an
    occupied cell just re-rolls (a fresh dart per throw, no key consumed,
    so exactly one tile still appears per keypress).  The tail IS the
-   dart loop: a miss sets x=2, the idle pass runs, and the tail comes
+   dart loop: a miss sets x=4, the idle pass runs, and the tail comes
    round to throw again.  The loop needs a certificate that an empty
    cell exists, or a full board would spin forever -- that certificate
    is V (below): V=0 happens only when the board is FULL.
@@ -85,26 +91,25 @@
    which is not a board cell (no cursor product is 0 mod 17) and
    nothing reads: a junk cell the full-board turn may scribble on,
    which is what lets the spawn be the bare 2<<(random bit).  Either
-   way V is then set to 4, the probe's base, and that 4 is the value
+   way V is then set to 6, the probe's base, and that 6 is the value
    the tail hands to x.
-   The screen clear rides the SPAWN's rand() argument, so it is printed
-   exactly once per turn, right before the probes and the render; a
-   missed throw prints nothing at all.
+   The screen clear is printed when the probe ends, right before the
+   render, exactly once per turn; a missed throw prints nothing at all.
 
    STATUS: one variable, V.  Its LOW BIT is the motion flag; a win
    drives it to zero.
      Motion: events RAISE it -- the write site does V|=!(stored value)
         whenever a flush writes out an EMPTY hold, i.e. whenever a line
         compacts (gap swallowed or merge made).  A move starts from 0 --
-        the key read's descriptor V-=5 leaves exactly 0 behind (see
+        the key read's descriptor V-=7 leaves exactly 0 behind (see
         below) -- so at dart time V answers "did that move pass see an
         empty cell or a merge?" (either one leaves an empty cell behind,
         so V=1 certifies the dart lands; V=0 means the board is FULL).
-        The vertical probe starts from the 4 the spawn tuple left (the
+        The vertical probe starts from the 6 the spawn tuple left (the
         spawn may just have filled the last cell, so the 1 left by the
         move would be a lie).  The render pass keeps what the vertical
         probe found and accumulates on top of it, so at the endgame test
-        V is 4 (nothing can move) or 5 (something can).
+        V is 6 (nothing can move) or 7 (something can).
      Win: the render pass delivers it MULTIPLICATIVELY as one of
         printf's extra arguments -- C evaluates and IGNORES arguments
         beyond the format string, so the slot is free: every cell the
@@ -114,14 +119,14 @@
         since the game ends the turn the first 2048 appears).  V drops
         to 0 and STAYS at most 1 -- later flushes only OR in bit 0.
    The endgame test is folded into the key read, taken right after the
-   two probes: read(V-=5,&P,3).  V is 5 when the game is on -- movable
-   and unwon -- and V-=5 makes it 0: the descriptor is 0, stdin, the
+   two probes: read(V-=7,&P,3).  V is 7 when the game is on -- movable
+   and unwon -- and V-=7 makes it 0: the descriptor is 0, stdin, the
    arrow's three bytes arrive in P, and the move that follows starts
-   from a clean 0.  V is 4 (stuck) or 0/1 (won) otherwise, and then the
-   descriptor is -1, -5 or -4, which no process has open, so read()
+   from a clean 0.  V is 6 (stuck) or 0/1 (won) otherwise, and then the
+   descriptor is -1, -7 or -6, which no process has open, so read()
    fails at once with EBADF: no byte is asked for, nothing blocks, P
    stays 1, the decode is 0 and the loop is over.  At the select V is
-   -1 (stuck) or -5/-4 (won), so ~V -- zero exactly for -1 -- picks
+   -1 (stuck) or -7/-6 (won), so ~V -- zero exactly for -1 -- picks
    WIN/LOSE.
    V STARTS AS argc, 1, which is the truth about an empty board: the
    first dart lands at once.  Nothing in the game needs V to be 0
@@ -167,26 +172,26 @@ main(V){
        then choose the next pass by the code of the one that ended --
        the value of the whole condition is the new x, so 0 ends the
        loop (see PASSES):
-         x == 4  (vertical probe done)  ->  1, the render pass.
-         x == 1  (render done)  ->  read the key on descriptor V-=5
-                 (stuck or won makes it fail at once, see STATUS) and
-                 decode it from P: an arrow gives the move code, a
-                 failed read leaves P at 1 and gives 0: game over.
+         x == 6  (vertical probe done)  ->  clear the screen; the 7
+                 that puts() returns is the render pass's code.
+         x&2     (render done: 7 is the only code with bit 1)  ->  read
+                 the key on descriptor V-=7 (stuck or won makes it fail
+                 at once, see STATUS) and decode it from P: an arrow
+                 gives the move code, a failed read leaves P at 1 and
+                 gives 0: game over.
          else    (a move, the idle pass, or the start)  ->  the dart.
                  V && the dart: on a live turn V is nonzero, V becomes
                  rand()%k+1, a board cell, and an occupied one is a
-                 MISS: x=2, the idle pass, then come round and throw
-                 again, silently (the clear is not here).  When V=0 the
-                 board is provably FULL: the && stops before the dart,
-                 nothing is drawn from rand(), and the turn goes right.
-                 The HIT (or full-board) tuple: first the screen clear,
-                 riding the spawn's rand() argument (once per turn,
-                 always before the render); then the spawn, a plain
-                 STORE of 2 shifted by one random bit -- 2 or 4 (50/50)
-                 into M[V], the landing cell, empty by the dart's
-                 contract (on a full board V is 0 and the junk lands in
-                 M[0], the cell no pass reads); then V=4, the probe's
-                 base, whose value is also the tuple's: x=4.
+                 MISS: x=4, the idle pass, then come round and throw
+                 again, silently.  When V=0 the board is provably FULL:
+                 the && stops before the dart, nothing is drawn from
+                 rand(), and the turn goes right.
+                 The HIT (or full-board) tuple: the spawn, a plain STORE
+                 of 2 shifted by one random bit -- 2 or 4 (50/50) into
+                 M[V], the landing cell, empty by the dart's contract
+                 (on a full board V is 0 and the junk lands in M[0], the
+                 cell no pass reads); then V=6, the probe's base, whose
+                 value is also the tuple's: x=6.
        INCREMENT: the new hold, phase-free (see above).  Reads:
        P&~(l+1) is 0 right after a merge, else P; an empty cell (P==0)
        keeps l.  Flushes: P==1 makes the whole mask 0 (bit 0 of ~(l+1)
@@ -197,13 +202,13 @@ main(V){
        whose decode is 0 if no key arrived. */
     for(system("stty cbreak");
         k||(j=k=16,
-            x=x^4
-                ?   x==1
-                    ?   read(V-=5,&P,3),P/7%6538
+            x=x^6
+                ?   x&2
+                    ?   read(V-=7,&P,3),P/7&8125
                     :   V&&M[V=rand()%k+1]
-                        ?   2
-                        :   (M[V]=2<<rand(puts("\e[H\e[J"))%2,V=4)
-                :   1);
+                        ?   4
+                        :   (M[V]=2<<rand()%2,V=6)
+                :   puts("\e[H\e[J"));
         l=P?P&~-~l:l,P=1)
         /* The body, one step of the pass, a single expression:
                V |= (should we write?) && !(the store)
@@ -215,35 +220,36 @@ main(V){
         V|=(j&3|k==j
             ?   P=M[j--*x%17],                /* read cell (j-- comma-sequenced
                                                  before the printf args below) */
-                x<2&&printf("%4.d|%c",P,j&3?:10,V*=P<2e3),
-                                              /* only the x=1 pass renders.  %4.d: a
-                                                 period with no digits is precision
-                                                 ZERO (C99 7.19.6.1), so this is %4.0d
-                                                 -- BLANKS for 0.  The %c rides the row
-                                                 \n: j has just stepped onto a multiple
-                                                 of 4 exactly at the 4th cell of a row,
-                                                 so j&3 is 0 there and the elvis yields
-                                                 10 -- and before it the elvis yields
-                                                 j&3 itself, the bytes 3, 2, 1 (ETX, STX,
-                                                 SOH), which every terminal discards
-                                                 unrendered, like the NUL they replace.
-                                                 The LAST argument is the WIN DELIVERY
-                                                 (see header): printf evaluates it and
-                                                 ignores it -- a free expression slot,
-                                                 once per rendered cell. */
+                x%7||printf("%4.d|%c",P,j&3?:10,V*=P<2e3),
+                                              /* only the x=7 pass renders: 7 is the
+                                                 one code that is a multiple of 7.
+                                                 %4.d: a period with no digits is
+                                                 precision ZERO (C99 7.19.6.1), so this
+                                                 is %4.0d -- BLANKS for 0.  The %c rides
+                                                 the row \n: j has just stepped onto a
+                                                 multiple of 4 exactly at the 4th cell
+                                                 of a row, so j&3 is 0 there and the
+                                                 elvis yields 10 -- and before it the
+                                                 elvis yields j&3 itself, the bytes 3, 2,
+                                                 1 (ETX, STX, SOH), which every terminal
+                                                 discards unrendered, like the NUL they
+                                                 replace.  The LAST argument is the WIN
+                                                 DELIVERY (see header): printf evaluates
+                                                 it and ignores it -- a free expression
+                                                 slot, once per rendered cell. */
                 P*l
             :   1
             /* The one write site, shared by moves, probes and the idle
                pass.  Real moves write the board cell k*x%17; the others
-               write the same cell lifted into scratch by 68/x (see
+               write the same cell lifted into scratch by 119/x (see
                header), so k paces identically on dry passes and nothing
                on the board is touched.  The value written is the MOTION
                witness: at a flush it is the hold l, so a stored 0 means
                this line compacted (gap or merge) -- and emit or merge
                writes are never 0 -- hence the !(the store). */
-            )&&!(M[k--*x%17|68/x]=l+P&~P);
-    /* Game over: the read failed.  V is -1 (stuck: 4, less 5) or -5/-4
-       (won: 0/1, less 5), so ~V -- zero exactly for -1 -- chooses the
+            )&&!(M[k--*x%17|119/x]=l+P&~P);
+    /* Game over: the read failed.  V is -1 (stuck: 6, less 7) or -7/-6
+       (won: 0/1, less 7), so ~V -- zero exactly for -1 -- chooses the
        string. */
     puts(~V?"WIN":"LOSE");
 }
