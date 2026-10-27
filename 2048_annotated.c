@@ -1,4 +1,4 @@
-/* 2048 in 303 bytes -- a complete terminal 2048.
+/* 2048 in 301 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -39,40 +39,54 @@
    PASSES.  Every turn runs three passes, and the CODE x of the pass
    that just ended tells the tail what comes next:
         x == 6   the vertical probe (a dry run, see the lift) is done
-                 -> clear the screen; x = what puts() returned, 7
+                 -> x=7, the render pass
         x has bit 1 (that is x == 7, the only such code)
                  the render pass (horizontal probe + drawing) is done
                  -> read the key, x = its decode (or 0: game over)
         else     a move (or the idle pass, or nothing yet: x starts 0)
                  -> throw the dart; a HIT spawns and sets x=6,
-                    a MISS sets x=4, the IDLE pass (below)
-   The screen clear is  puts("\e[H\e[J"), which returns the number of
-   bytes it wrote, 7; that 7 is the render code, and the layout follows
-   from it (above).  The decode P/7&8125 maps the three arrow bytes to
-   5672, 6840, 7949, 925 (Up, Down, Right, Left): residues 11, 6, 10, 7
-   mod 17.  Three more things about those numbers matter: all exceed
-   119 (lift), none is a multiple of 7 (render gate), and none has bit
-   1 set -- nor do 0 and 4 -- so "the render just ended" is the two-
-   character test x&2.  If the read FAILS the buffer P keeps the 1 it
-   always holds between passes, and 1/7&8125 is 0: x=0 is the value of
-   the whole condition, so the loop ends -- the key read is also the
-   endgame test (see STATUS).  No idle value is needed from the decode,
-   because a missed dart never reaches it.
+                    a MISS sets x=17, the IDLE pass (below)
+   The render stride 7 is a free choice (any stride is a layout), made
+   so that the decode can be P/7&8125, which maps the three arrow bytes
+   to 5672, 6840, 7949, 925 (Up, Down, Right, Left): residues 11, 6,
+   10, 7 mod 17.  Two more things about those numbers matter: all
+   exceed 289 (lift), and none has bit 1 set -- nor do 0 and 17 -- so
+   "the render just ended" is the two-character test x&2.  If the read
+   FAILS the buffer P keeps the 1 it always holds between passes, and
+   1/7&8125 is 0: x=0 is the value of the whole condition, so the loop
+   ends -- the key read is also the endgame test (see STATUS).  No idle
+   value is needed from the decode, because a missed dart never reaches
+   it.
    The probe code 6 is the DOWN residue (any vertical pass will do for
-   a probe) and is also the status base (STATUS).  The IDLE code 4 is a
-   dry pass too: it reads the board with stride 4 and writes its slides
-   into M[29..31], scratch; it prints nothing, draws no random number,
-   and leaves the board alone.  Its only effect is a pass's worth of
-   bookkeeping (j=k=0, l=0, P=1) and ORing a 1 into V, which a miss has
-   already made nonzero.
+   a probe) and is also the status base (STATUS).  The IDLE code 17 is
+   a dry pass of a special kind: 17 is 0 mod 17, so every cursor
+   product is 0 and the pass READS ONLY M[0], the junk cell, sixteen
+   times, and writes its slides into M[17], scratch; it draws no random
+   number and leaves the board alone.  Its only effect is a pass's
+   worth of bookkeeping (j=k=0, l=0, P=1) and ORing a 1 into V, which a
+   miss has already made nonzero.  Reading no board cell is what keeps
+   the win delivery (STATUS), which now runs in every pass, out of its
+   way: M[0] only ever holds 0, 2 or 4.
 
-   DRY RUNS: the one write site ORs the index with 119/x.  For the
-   moves (x > 119) that is 0 and the board is written; for the render
-   pass (x=7) it is 17, for the vertical probe (x=6) it is 19 and for
-   the idle pass (x=4) it is 29, so their slides are written into
-   M[17..31] -- write-only scratch (the probes READ the board, unlifted,
+   DRY RUNS: the one write site ORs the index with 289/x.  For the
+   moves (x > 289) that is 0 and the board is written; for the render
+   pass (x=7) it is 41, for the vertical probe (x=6) it is 48 and for
+   the idle pass (x=17) it is 17, so their slides are written into
+   M[17..63] -- write-only scratch (the probes READ the board, unlifted,
    and must), and the board is untouched while the cursor paces exactly
    as on a real move.
+
+   THE SCREEN CLEAR is the render printf's OTHER format: every pass
+   calls printf once per cell read, and the format is chosen by the
+   pass code -- "%4.d|%c" for the render pass (x=7), the clear
+   "\e[H\e[J\n" (home, erase to end of screen, newline: the board
+   starts on row 2) for every other pass.  So the move pass, the idle
+   pass and the vertical probe each print the clear sixteen times, and
+   the render pass then draws on a blank screen; a repeated clear is
+   idempotent, so the screen is exactly what one clear before the
+   render gives, and the extra bytes cost nothing on the display.  The
+   arguments are evaluated whatever the format (C ignores surplus
+   arguments), which is why the idle pass must not read the board.
 
    SPAWN: a dart.  Each turn throws one uniform-random dart V =
    rand()%k+1 -- k is the write cursor, which the tail has just reset
@@ -80,7 +94,7 @@
    for; an empty cell catches it and receives the new tile, an
    occupied cell just re-rolls (a fresh dart per throw, no key consumed,
    so exactly one tile still appears per keypress).  The tail IS the
-   dart loop: a miss sets x=4, the idle pass runs, and the tail comes
+   dart loop: a miss sets x=17, the idle pass runs, and the tail comes
    round to throw again.  The loop needs a certificate that an empty
    cell exists, or a full board would spin forever -- that certificate
    is V (below): V=0 happens only when the board is FULL.
@@ -93,8 +107,6 @@
    which is what lets the spawn be the bare 2<<(random bit).  Either
    way V is then set to 6, the probe's base, and that 6 is the value
    the tail hands to x.
-   The screen clear is printed when the probe ends, right before the
-   render, exactly once per turn; a missed throw prints nothing at all.
 
    STATUS: one variable, V.  Its LOW BIT is the motion flag; a win
    drives it to zero.
@@ -110,14 +122,17 @@
         move would be a lie).  The render pass keeps what the vertical
         probe found and accumulates on top of it, so at the endgame test
         V is 6 (nothing can move) or 7 (something can).
-     Win: the render pass delivers it MULTIPLICATIVELY as one of
-        printf's extra arguments -- C evaluates and IGNORES arguments
-        beyond the format string, so the slot is free: every cell the
-        render pass reads lands in P, and V*=P<2e3 multiplies V by 0
+     Win: the probe and render passes deliver it MULTIPLICATIVELY as
+        one of printf's extra arguments -- C evaluates and IGNORES
+        arguments beyond the format string, so the slot is free: every
+        cell a pass reads lands in P, and V*=P<2e3 multiplies V by 0
         exactly for a 2048 tile (2e3 is the float constant 2000, three
         characters: no lesser tile exceeds it, and 4096 can never exist,
         since the game ends the turn the first 2048 appears).  V drops
         to 0 and STAYS at most 1 -- later flushes only OR in bit 0.
+        The same expression runs in the move pass, which never sees a
+        2048 (the game ends before the next move), and in the idle
+        pass, which reads only M[0] (see PASSES): harmless in both.
    The endgame test is folded into the key read, taken right after the
    two probes: read(V-=7,&P,3).  V is 7 when the game is on -- movable
    and unwon -- and V-=7 makes it 0: the descriptor is 0, stdin, the
@@ -172,8 +187,7 @@ main(V){
        then choose the next pass by the code of the one that ended --
        the value of the whole condition is the new x, so 0 ends the
        loop (see PASSES):
-         x == 6  (vertical probe done)  ->  clear the screen; the 7
-                 that puts() returns is the render pass's code.
+         x == 6  (vertical probe done)  ->  7, the render pass.
          x&2     (render done: 7 is the only code with bit 1)  ->  read
                  the key on descriptor V-=7 (stuck or won makes it fail
                  at once, see STATUS) and decode it from P: an arrow
@@ -182,8 +196,8 @@ main(V){
          else    (a move, the idle pass, or the start)  ->  the dart.
                  V && the dart: on a live turn V is nonzero, V becomes
                  rand()%k+1, a board cell, and an occupied one is a
-                 MISS: x=4, the idle pass, then come round and throw
-                 again, silently.  When V=0 the board is provably FULL:
+                 MISS: x=17, the idle pass, then come round and throw
+                 again.  When V=0 the board is provably FULL:
                  the && stops before the dart, nothing is drawn from
                  rand(), and the turn goes right.
                  The HIT (or full-board) tuple: the spawn, a plain STORE
@@ -206,9 +220,9 @@ main(V){
                 ?   x&2
                     ?   read(V-=7,&P,3),P/7&8125
                     :   V&&M[V=rand()%k+1]
-                        ?   4
+                        ?   17
                         :   (M[V]=2<<rand()%2,V=6)
-                :   puts("\e[H\e[J"));
+                :   7);
         l=P?P&~-~l:l,P=1)
         /* The body, one step of the pass, a single expression:
                V |= (should we write?) && !(the store)
@@ -220,9 +234,10 @@ main(V){
         V|=(j&3|k==j
             ?   P=M[j--*x%17],                /* read cell (j-- comma-sequenced
                                                  before the printf args below) */
-                x%7||printf("%4.d|%c",P,j&3?:10,V*=P<2e3),
-                                              /* only the x=7 pass renders: 7 is the
-                                                 one code that is a multiple of 7.
+                printf(x^7?"\e[H\e[J\n":"%4.d|%c",P,j&3?:10,V*=P<2e3),
+                                              /* only the x=7 pass renders; every other
+                                                 pass prints the (idempotent) screen
+                                                 clear instead, see header.
                                                  %4.d: a period with no digits is
                                                  precision ZERO (C99 7.19.6.1), so this
                                                  is %4.0d -- BLANKS for 0.  The %c rides
@@ -241,13 +256,13 @@ main(V){
             :   1
             /* The one write site, shared by moves, probes and the idle
                pass.  Real moves write the board cell k*x%17; the others
-               write the same cell lifted into scratch by 119/x (see
+               write the same cell lifted into scratch by 289/x (see
                header), so k paces identically on dry passes and nothing
                on the board is touched.  The value written is the MOTION
                witness: at a flush it is the hold l, so a stored 0 means
                this line compacted (gap or merge) -- and emit or merge
                writes are never 0 -- hence the !(the store). */
-            )&&!(M[k--*x%17|119/x]=l+P&~P);
+            )&&!(M[k--*x%17|289/x]=l+P&~P);
     /* Game over: the read failed.  V is -1 (stuck: 6, less 7) or -7/-6
        (won: 0/1, less 7), so ~V -- zero exactly for -1 -- chooses the
        string. */
