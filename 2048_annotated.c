@@ -1,4 +1,4 @@
-/* 2048 in 299 bytes -- a complete terminal 2048.
+/* 2048 in 298 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -108,8 +108,9 @@
    which is not a board cell (no cursor product is 0 mod 17 in a board
    pass) and nothing but the idle pass reads: a junk cell the full-board
    turn may scribble on, which is what lets the spawn be the bare
-   2<<(random bit).  Either way V is then set to -4, the probe's base,
-   and the tuple ends with the 4 that the tail hands to x.
+   2<<(random bit).  Either way V is then set to -4, the probe's base --
+   and the whole tuple is NEGATED: -(..., V=-4) is 4, the probe code,
+   so the value the tail hands to x costs no character of its own.
 
    STATUS: one variable, V.  Its LOW BIT is the motion flag; its SIGN
    is the phase of the turn; a win drives it far below zero.
@@ -212,7 +213,8 @@ main(V){
                  M[V], the landing cell, empty by the dart's contract
                  (on a full board V is 0 and the junk lands in M[0], the
                  cell no board pass reads); then V=-4, the probe's base;
-                 and the tuple's own value, 4, is the probe code: x=4.
+                 the tuple is negated, so its value is 4, the probe
+                 code: x=4.
        INCREMENT: the new hold, phase-free (see above).  Reads:
        P&~(l+1) is 0 right after a merge, else P; an empty cell (P==0)
        keeps l.  Flushes: P==1 makes the whole mask 0 (bit 0 of ~(l+1)
@@ -225,7 +227,7 @@ main(V){
                 ?   read(V/=2,&x,3),x%52946/4
                 :   V&&M[V=rand()%k+1]
                     ?   85
-                    :   (M[V]=2<<rand()%2,V=-4,4));
+                    :   -(M[V]=2<<rand()%2,V=-4));
         l=P?P&~-~l:l,P=1)
         /* The body, one step of the pass, a single expression:
                V |= (should we write?) && !(the store)
