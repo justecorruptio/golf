@@ -1,4 +1,4 @@
-/* 2048 in 298 bytes -- a complete terminal 2048.
+/* 2048 in 296 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -8,7 +8,8 @@
    step of a slide pass (one cell read, or one cell written), and its
    CONDITION, which runs between steps, is the TURN TAIL -- it notices
    when a pass has finished and sets up the next one (spawn, probe,
-   render, key read), or ends the game.  There is no s() any more: the
+   render, key read), or ends the game -- and its truth value, 1 for as
+   long as the game runs, is stored into P on the way (see main).  There is no s() any more: the
    function-call plumbing (the definition, three calls per turn, the
    return) is gone, and with it the need for the status flag V to be a
    global: V is main's parameter, i.e. argc, which is 1 -- exactly the
@@ -166,8 +167,9 @@ M[99],k,j,l,P,x;
    Tiles are powers of two, which keeps the whole merge in bare bit-ops --
    and makes ONE write expression serve both emit and flush:  l+P&~P  is
    2l on a merge (l==P), l on a block, and degenerates to exactly l when
-   P is 0 or 1 (l is always even).  The loop increment sets P=1 after
-   every iteration (a read overwrites it, a flush inherits it) -- and that
+   P is 0 or 1 (l is always even).  Every iteration starts with P=1: the
+   loop condition is  P=k||(...)  and  ||  yields exactly 1 whenever the
+   loop goes on (a read overwrites it, a flush inherits it) -- and that
    1, the only odd P in the program, then doubles as the PHASE FLAG: the
    hold update  P&~-~l  is P&~l untouched for even tiles but exactly 0
    at a flush, so the loop needs no second phase test.
@@ -193,7 +195,10 @@ main(V){
        the body takes the next step.  When k is 0 a pass has ended (or
        none has started yet), and the tail runs: reset both cursors,
        then choose the next pass by the sign of V -- the value of the
-       whole condition is the new x, so 0 ends the loop (see PASSES):
+       k||(...) is 1 unless the new x is 0, which ends the loop (see
+       PASSES), and that value is assigned to P: the  P=  in front costs
+       two characters and replaces the four of a  ,P=1  increment, since
+       the one place P must be 1 is the start of a flush step:
          V < 0   (a probe or the render ended)  ->  read the key on
                  descriptor V/=2 into x.  After the probe that descriptor
                  is -2 or -1: the read fails at once, x stays 4, and 4
@@ -218,17 +223,18 @@ main(V){
        INCREMENT: the new hold, phase-free (see above).  Reads:
        P&~(l+1) is 0 right after a merge, else P; an empty cell (P==0)
        keeps l.  Flushes: P==1 makes the whole mask 0 (bit 0 of ~(l+1)
-       is 0 for even l).  Then P=1, unconditionally: a read iteration
-       overwrites it, a flush iteration inherits exactly the 1 it needs
-       -- so the flush condition in the body is 1. */
+       is 0 for even l).  P itself is not reset here: the condition
+       does it before every step (above), so a read iteration overwrites
+       the 1 and a flush iteration inherits exactly the 1 it needs --
+       which is why the flush condition in the body is 1. */
     for(system("stty cbreak");
-        k||(j=k=16,
+        P=k||(j=k=16,
             x=V<0
                 ?   read(V/=2,&x,3),x%52946/4
                 :   V&&M[V=rand()%k+1]
                     ?   85
                     :   -(M[V]=2<<rand()%2,V=-4));
-        l=P?P&~-~l:l,P=1)
+        l=P?P&~-~l:l)
         /* The body, one step of the pass, a single expression:
                V |= (should we write?) && !(the store)
            -- the && short-circuits past the store exactly when a guarding
