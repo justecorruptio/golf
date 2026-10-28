@@ -1,9 +1,9 @@
-/* 2048 in 294 bytes -- a complete terminal 2048.
+/* 2048 in 293 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
-   Style: K&R implicit int, plus one GNU C extension: the omitted-middle
-   conditional  a?:b  (a if a is nonzero, else b; a evaluated once).
+   Style: K&R implicit int.  No GNU extension is needed any more: the
+   omitted-middle conditional  a?:b  of the earlier cards is gone.
    ONE function.  The whole game is a single for loop: its BODY is one
    step of a slide pass (one cell read, or one cell written), and its
    CONDITION, which runs between steps, is the TURN TAIL -- it notices
@@ -230,7 +230,7 @@ main(V){
        is 0 for even l).  P itself is not reset here: the condition
        does it before every step (above), so a read iteration overwrites
        the 1 and a flush iteration inherits exactly the 1 it needs --
-       which is why the flush arm of the body is the bare test value. */
+       which is why a flush step needs no P of its own (see the body). */
     for(system("stty cbreak");
         P=k||(j=k=16,
             x=V<0
@@ -240,15 +240,16 @@ main(V){
                     :   -(M[V]=2<<rand()%2,V=-4));
         V-=P&2048,l=P?P&~-~l:l)
         /* The body, one step of the pass, a single expression:
-               V |= (should we write?) && !(the store)
-           -- the && short-circuits past the store exactly when a guarding
-           `if` would have skipped it.  Flushes (the test is 1): always
-           write.  Reads (the test is 0, so the elvis yields its right
-           arm): fetch the cell, maybe print it, and write iff a tile was
-           read while one is held (P*l != 0) -- the emit.  The MOTION
-           raise happens at the write site, keyed on the value written. */
-        V|=(k>j>j%4
-            ?:  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
+               flush? || (read, and emit?)  ?  V |= !(the store)  :  0
+           -- the || short-circuits past the read exactly when the step is
+           a flush, and the ?: skips the store exactly when a guarding
+           `if` would have.  Flushes (the test is 1): always write.
+           Reads (the test is 0, so the || goes on to the printf): fetch
+           the cell, maybe print it, and write iff a tile was read while
+           one is held (P*l != 0) -- the emit.  The MOTION raise happens
+           at the write site, keyed on the value written. */
+        k>j>j%4
+        ||  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
                                               /* the READ is printf's second argument:
                                                  the cell lands in P and is printed.
                                                  Only the x=1 pass renders; every other
@@ -268,7 +269,7 @@ main(V){
                                                  Within the argument list nothing else
                                                  reads P or writes j, so the list is
                                                  free of unsequenced hazards. */
-                &&j--*P*l                     /* printf returned nonzero (it printed),
+            &&j--*P*l                     /* printf returned nonzero (it printed),
                                                  so now -- after the sequence point --
                                                  step the read cursor and answer "emit?"
                                                  with P*l. */
@@ -280,8 +281,9 @@ main(V){
                value written is the MOTION witness: at a flush it is the
                hold l, so a stored 0 means this line compacted (gap or
                merge) -- and emit or merge writes are never 0 -- hence
-               the !(the store). */
-            )&&!(M[k--*x%17|68/x]=l+P&~P);
+               the !(the store).  The :0 arm is the skipped store. */
+            ?   V|=!(M[k--*x%17|68/x]=l+P&~P)
+            :   0;
     /* Game over: the read failed.  V is -1 (stuck: -2, halved) or some
        thousand below zero (won), so ~V -- zero exactly for -1 -- chooses
        the string. */

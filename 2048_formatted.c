@@ -8,9 +8,10 @@ main(V){
                     ?   85
                     :   -(M[V]=2<<rand()%2,V=-4));
         V-=P&2048,l=P?P&~-~l:l)
-        V|=(k>j>j%4
-            ?:  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
-                &&j--*P*l
-            )&&!(M[k--*x%17|68/x]=l+P&~P);
+        k>j>j%4
+        ||  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
+            &&j--*P*l
+            ?   V|=!(M[k--*x%17|68/x]=l+P&~P)
+            :   0;
     puts(~V?"WIN":"LOSE");
 }
