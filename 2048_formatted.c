@@ -7,12 +7,10 @@ main(V){
                 :   V&&M[V=rand()%k+1]
                     ?   85
                     :   -(M[V]=2<<rand()%2,V=-4));
-        l=P?P&~-~l:l)
-        V|=(j&3|k==j
-            ?   P=M[j--*x%17],
-                printf(x^1?"\e[H\e[J\n":"%4.d|%c",P,j&3?:10,V-=P&2048),
-                P*l
-            :   1
+        V-=P&2048,l=P?P&~-~l:l)
+        V|=(k>j>j%4
+            ?:  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
+                &&j--*P*l
             )&&!(M[k--*x%17|68/x]=l+P&~P);
     puts(~V?"WIN":"LOSE");
 }

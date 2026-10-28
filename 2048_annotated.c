@@ -1,4 +1,4 @@
-/* 2048 in 296 bytes -- a complete terminal 2048.
+/* 2048 in 294 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -138,18 +138,18 @@
         clean 0 -- and -1 of -2: EBADF again, x stays 1, the decode is 0
         and the loop is over with V == -1.  Truncating division is what
         makes this work: -1/2 is 0 but -2/2 is -1.
-     Win: every pass delivers it SUBTRACTIVELY as one of printf's extra
-        arguments -- C evaluates and IGNORES arguments beyond the format
-        string, so the slot is free: every cell a pass reads lands in P,
-        and V-=P&2048 takes 2048 off V exactly for a 2048 tile (tiles
-        are powers of two, so P&2048 is 2048 or 0; 4096 can never exist,
-        since the game ends the turn the first 2048 appears).  Both the
-        probe and the render read the winning tile, so V is about -1000
-        at the first read and -1500 at the second: both fail, the decode
-        of the untouched 1 ends the loop, and V is nowhere near -1.
-        The same expression runs in the move pass, which never sees a
-        2048 (the game ends before the next move), and in the idle pass,
-        which reads only M[0] (see PASSES): harmless in both.
+     Win: every pass delivers it SUBTRACTIVELY in the loop increment:
+        every cell a pass reads lands in P, and V-=P&2048 takes 2048 off
+        V exactly for a 2048 tile (tiles are powers of two, so P&2048 is
+        2048 or 0; 4096 can never exist, since the game ends the turn
+        the first 2048 appears; at a flush step P is 1 and the term is
+        0).  Both the probe and the render read the winning tile, so V
+        is about -1000 at the first read and -1500 at the second: both
+        fail, the decode of the untouched 1 ends the loop, and V is
+        nowhere near -1.  The same expression runs in the move pass,
+        which never sees a 2048 (the game ends before the next move),
+        and in the idle pass, which reads only M[0] (see PASSES):
+        harmless in both.
    At the select V is -1 (stuck) or far below (won), so ~V -- zero
    exactly for -1 -- picks WIN/LOSE.
    V STARTS AS argc, 1, which is the truth about an empty board: the
@@ -172,23 +172,26 @@ M[99],k,j,l,P,x;
    loop goes on (a read overwrites it, a flush inherits it) -- and that
    1, the only odd P in the program, then doubles as the PHASE FLAG: the
    hold update  P&~-~l  is P&~l untouched for even tiles but exactly 0
-   at a flush, so the loop needs no second phase test.
+   at a flush, so the loop needs no second phase test (and the win term
+   P&2048 is 0 there).
    (~-~l is ~(l+1); l is always even, so l+1 == l|1 and this one unary
    ripple equals the two-mask form ~l&~1 everywhere it runs.)
 
    A line is four read steps followed by as many flush steps as it takes
    the write cursor to catch up with the read cursor.  The phase test is
-   j&3|k==j :
-   - j&3 != 0 means the line's reads are not done (j counts 16..1, so
-     the four reads of a line leave it at a multiple of 4 exactly when
-     the fourth is done);
-   - k==j means a line is about to START (both cursors at its first
-     cell) -- and it can mean nothing else, because the first read of a
-     line never writes (nothing is held yet), so when the reads are done
-     the write cursor is strictly ahead and at least one flush follows.
-   So read iff j&3 or k==j, else flush.  A pass is over when k reaches 0,
-   the end of the last line; every pass thus leaves j==k==0, and the
-   tail resets both to 16 when it starts the next one. */
+   k>j>j%4, read as (k>j)>(j%4): it is 1 -- FLUSH -- exactly when k>j
+   and j%4 is 0, else 0 -- READ:
+   - j%4 == 0 means the line's reads are done (j counts 16..1 and is
+     decremented AFTER each read, so it stands on a multiple of 4
+     exactly when the fourth cell of a line has been read);
+   - k>j means the write cursor has not caught up -- and k==j can mean
+     nothing but "a line is about to START" (both cursors at its first
+     cell), because the first read of a line never writes (nothing is
+     held yet), so when the reads are done the write cursor is strictly
+     ahead and at least one flush follows.
+   So flush iff k>j and j%4==0, else read.  A pass is over when k
+   reaches 0, the end of the last line; every pass thus leaves j==k==0,
+   and the tail resets both to 16 when it starts the next one. */
 main(V){
     /* INIT: the terminal setup, exactly once.
        CONDITION: while a pass is running (k != 0) it is simply k, and
@@ -220,13 +223,14 @@ main(V){
                  cell no board pass reads); then V=-4, the probe's base;
                  the tuple is negated, so its value is 4, the probe
                  code: x=4.
-       INCREMENT: the new hold, phase-free (see above).  Reads:
+       INCREMENT: the WIN DELIVERY (see header; 0 at a flush, P being
+       1) and then the new hold, phase-free (see above).  Reads:
        P&~(l+1) is 0 right after a merge, else P; an empty cell (P==0)
        keeps l.  Flushes: P==1 makes the whole mask 0 (bit 0 of ~(l+1)
        is 0 for even l).  P itself is not reset here: the condition
        does it before every step (above), so a read iteration overwrites
        the 1 and a flush iteration inherits exactly the 1 it needs --
-       which is why the flush condition in the body is 1. */
+       which is why the flush arm of the body is the bare test value. */
     for(system("stty cbreak");
         P=k||(j=k=16,
             x=V<0
@@ -234,37 +238,40 @@ main(V){
                 :   V&&M[V=rand()%k+1]
                     ?   85
                     :   -(M[V]=2<<rand()%2,V=-4));
-        l=P?P&~-~l:l)
+        V-=P&2048,l=P?P&~-~l:l)
         /* The body, one step of the pass, a single expression:
                V |= (should we write?) && !(the store)
            -- the && short-circuits past the store exactly when a guarding
-           `if` would have skipped it.  Reads: fetch the cell, maybe print
-           it, and write iff a tile was read while one is held (P*l != 0)
-           -- the emit.  Flushes: always write.  The MOTION raise happens
-           at the write site, keyed on the value written. */
-        V|=(j&3|k==j
-            ?   P=M[j--*x%17],                /* read cell (j-- comma-sequenced
-                                                 before the printf args below) */
-                printf(x^1?"\e[H\e[J\n":"%4.d|%c",P,j&3?:10,V-=P&2048),
-                                              /* only the x=1 pass renders; every other
+           `if` would have skipped it.  Flushes (the test is 1): always
+           write.  Reads (the test is 0, so the elvis yields its right
+           arm): fetch the cell, maybe print it, and write iff a tile was
+           read while one is held (P*l != 0) -- the emit.  The MOTION
+           raise happens at the write site, keyed on the value written. */
+        V|=(k>j>j%4
+            ?:  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
+                                              /* the READ is printf's second argument:
+                                                 the cell lands in P and is printed.
+                                                 Only the x=1 pass renders; every other
                                                  pass prints the (idempotent) screen
-                                                 clear instead, see header.
+                                                 clear instead, see header -- the
+                                                 arguments are evaluated either way.
                                                  %4.d: a period with no digits is
                                                  precision ZERO (C99 7.19.6.1), so this
                                                  is %4.0d -- BLANKS for 0.  The %c rides
-                                                 the row \n: j has just stepped onto a
-                                                 multiple of 4 exactly at the 4th cell
-                                                 of a row, so j&3 is 0 there and the
-                                                 elvis yields 10 -- and before it the
-                                                 elvis yields j&3 itself, the bytes 3, 2,
-                                                 1 (ETX, STX, SOH), which every terminal
-                                                 discards unrendered, like the NUL they
-                                                 replace.  The LAST argument is the WIN
-                                                 DELIVERY (see header): printf evaluates
-                                                 it and ignores it -- a free expression
-                                                 slot, once per cell read. */
-                P*l
-            :   1
+                                                 the row \n: j is still the cursor BEFORE
+                                                 this read (it steps below, after the
+                                                 call), so the 4th cell of a row is
+                                                 j%4==1 and j%4*10 is 10 there; the
+                                                 other cells get 0, 30, 20 (NUL, RS, DC4)
+                                                 -- C0 bytes which the terminal discards
+                                                 unrendered, like the NUL they replace.
+                                                 Within the argument list nothing else
+                                                 reads P or writes j, so the list is
+                                                 free of unsequenced hazards. */
+                &&j--*P*l                     /* printf returned nonzero (it printed),
+                                                 so now -- after the sequence point --
+                                                 step the read cursor and answer "emit?"
+                                                 with P*l. */
             /* The one write site, shared by moves, probes and the idle
                pass.  Real moves write the board cell k*x%17; the probes
                write the same cell lifted into scratch by 68/x and the
