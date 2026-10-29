@@ -1,4 +1,4 @@
-/* 2048 in 290 bytes -- a complete terminal 2048.
+/* 2048 in 286 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -176,16 +176,17 @@ M[99],k,j,l,P,x;
    Tiles are powers of two, which keeps the whole merge in bare bit-ops --
    and makes ONE write expression serve both emit and flush:  l+P&~P  is
    2l on a merge (l==P), l on a block, and degenerates to exactly l when
-   P is 0 or 1 (l is always even).  Every iteration starts with P=0: the
+   P is 0 (l is always even).  Every iteration starts with P=0: the
    increment's  P&=2048  (see STATUS, Win) clears P after every ordinary
    step (a read overwrites it, a flush inherits it) -- and that 0 then
-   doubles as the PHASE FLAG: the hold update  P&~-~l  (the body's
-   value, see there) is P&~l untouched for even tiles but exactly 0 at
-   a flush, so the loop needs no second phase test (and the win term is
-   0 there).  Earlier cards hoisted a 1 into P from the loop condition
-   instead; 0 serves every one of these roles equally.
-   (~-~l is ~(l+1); l is always even, so l+1 == l|1 and this one unary
-   ripple equals the two-mask form ~l&~1 everywhere it runs.)
+   doubles as the PHASE FLAG: the hold update is an XOR (the body is
+   l^=...) whose delta is  l|P  on the write arm and  P  on the other,
+   and with P==0 at a flush the write arm's delta is l itself, which
+   empties the hold -- so the loop needs no second phase test (and the
+   win term is 0 there).  Earlier cards hoisted a 1 into P from the
+   loop condition and had to mask it back out of the hold with ~(l+1);
+   with 0 in that role the mask, and then the whole assignment, folded
+   into the XOR.
 
    A line is four read steps followed by as many flush steps as it takes
    the write cursor to catch up with the read cursor.  The phase test is
@@ -239,8 +240,7 @@ main(V){
        iteration overwrites it and a flush iteration inherits exactly
        the 0 it needs (merge notes, above): a flush step needs no P of its own,
        and the condition no longer hoists one.  The hold update used to
-       live here as well; it is now the VALUE of the body's conditional
-       (see the body). */
+       live here as well; it is now the body's own XOR (see the body). */
     for(system("stty cbreak");
         k||(j=k=16,
             x=V<0
@@ -250,27 +250,28 @@ main(V){
                     :   -(M[V]=2<<rand()%2,V=-4));
         V-=P&=2048)
         /* The body, one step of the pass, a single expression, and that
-           expression is an ASSIGNMENT TO THE HOLD:
-             l = flush? || (read, and emit?)
-                   ?  V |= !(the store), P&~(l+1)      (store arm)
-                   :  l|P                              (skipped store)
+           expression is an XOR INTO THE HOLD:
+             l ^= flush? || (read, and emit?)
+                    ?  V |= !(the store), l|P      (write arm)
+                    :  P                           (skipped store)
            -- the || short-circuits past the read exactly when the step is
-           a flush, and the ?: takes the store arm exactly when a guarding
+           a flush, and the ?: takes the write arm exactly when a guarding
            `if` would have.  Flushes (the test is 1): always write.
            Reads (the test is 0, so the || goes on to the printf): fetch
            the cell, maybe print it, and write iff a tile was read while
            one is held (P*l != 0) -- the emit.  The MOTION raise happens
            at the write site, keyed on the value written.  Either arm
-           then yields the NEW HOLD and the outer l= stores it: the store
-           arm's comma expression ends in P&~(l+1), which is 0 right
-           after a merge (P==l) and after a flush (P is 0 there), else
-           the tile just read; the skipped-store arm is l|P, which keeps
-           l when the cell was empty (P==0) and takes P when nothing was
-           held (l==0) -- the only two ways to reach it.  Every l on the
-           right-hand side is the OLD hold: the update of l is sequenced
-           after the whole right-hand side (C11 6.5.16), so there is no
-           unsequenced hazard. */
-        l=k>j>j%4
+           then yields the DELTA that turns the old hold into the new:
+           on the write arm it is l|P, and l^(l|P) is 0 after a flush
+           (P is 0 there) and after a merge (P==l), else exactly the
+           tile just read (l and P are distinct single bits); on the
+           skipped arm it is P, and l^P keeps l when the cell was empty
+           (P==0) and takes P when nothing was held (l==0) -- the only
+           two ways to reach it.  Every l on the right-hand side is the
+           OLD hold: the update of l is sequenced after the whole
+           right-hand side (C11 6.5.16), so there is no unsequenced
+           hazard. */
+        l^=k>j>j%4
         ||  printf(x^1?"\e[H\e[J\n":"%4.d|%c",P=M[j*x%17],j%4*10)
                                               /* the READ is printf's second argument:
                                                  the cell lands in P and is printed.
@@ -303,10 +304,10 @@ main(V){
                value written is the MOTION witness: at a flush it is the
                hold l, so a stored 0 means this line compacted (gap or
                merge) -- and emit or merge writes are never 0 -- hence
-               the !(the store).  The comma then hands the new hold up as
-               the arm's value; the l|P arm is the skipped store. */
-            ?   V|=!(M[k--*x%17|68/x]=l+P&~P),P&~-~l
-            :   l|P;
+               the !(the store).  The comma then hands the arm's delta,
+               l|P, up to the XOR; the bare P is the skipped store. */
+            ?   V|=!(M[k--*x%17|68/x]=l+P&~P),l|P
+            :   P;
     /* Game over: the read failed.  V is -1 (stuck: -2, halved) or some
        thousand below zero (won), so ~V -- zero exactly for -1 -- chooses
        the string. */
