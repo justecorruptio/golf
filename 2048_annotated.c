@@ -1,4 +1,4 @@
-/* 2048 in 291 bytes -- a complete terminal 2048.
+/* 2048 in 290 bytes -- a complete terminal 2048.
    Build & play:  cc 2048.c -o 2048 && ./2048    (arrow keys slide;
    make a 2048 tile to win, fill the board with no move left to lose)
 
@@ -15,7 +15,8 @@
    global: V is main's parameter, i.e. argc, which is 1 -- exactly the
    value an empty board needs (see STATUS).  The scratch variables
    (j,k,l,P,x) are globals and each is relied on to persist from one
-   pass to the next: l ends every pass at 0, k and j at 0, P at 1.
+   pass to the next: l ends every pass at 0, k and j at 0, P at 0 (or
+   at 2048, but only once a win is already banked -- see STATUS).
 
    THE BOARD lives in M[1..16].  There is no row/column arithmetic at
    all: a cell is  M[c*x%17]  for a cursor c in 16..1 and the pass code
@@ -69,7 +70,7 @@
    (M[0] holds 0, 2 or 4 when it starts and 0 when it ends: the four
    reads of its first line see v, v, 2v, 2v -- the two merges land in
    M[0] itself -- and the flushes that follow write 0).  Its only effect
-   is a pass's worth of bookkeeping (j=k=0, l=0, P=1) and ORing a 1
+   is a pass's worth of bookkeeping (j=k=0, l=0, P=0) and ORing a 1
    into V, which a miss has already made positive.
 
    DRY RUNS: the one write site ORs the index with 68/x.  For the moves
@@ -139,13 +140,21 @@
         and the loop is over with V == -1.  Truncating division is what
         makes this work: -1/2 is 0 but -2/2 is -1.
      Win: every pass delivers it SUBTRACTIVELY in the loop increment:
-        every cell a pass reads lands in P, and V-=P&2048 takes 2048 off
+        every cell a pass reads lands in P, and V-=P&=2048 takes 2048 off
         V exactly for a 2048 tile (tiles are powers of two, so P&2048 is
         2048 or 0; 4096 can never exist, since the game ends the turn
-        the first 2048 appears; at a flush step P is 1 and the term is
-        0).  Both the probe and the render read the winning tile, so V
-        is about -1000 at the first read and -1500 at the second: both
-        fail, the decode of the untouched 1 ends the loop, and V is
+        the first 2048 appears).  The COMPOUND assignment is the point:
+        P&=2048 also leaves P itself as that bit -- 0 after every
+        ordinary step -- which is exactly the P a flush step needs (see
+        the merge notes below), so the loop condition need not hoist a 1:
+        one character here replaces the two of a  P=  there.  At a flush
+        step the term is 0.  (After a 2048 has been read P stays 2048
+        for one step, so the flush that may follow takes a second 2048
+        off V and holds a junk 2048 -- the win is already banked, V is
+        thousands below zero, and only dry, lifted passes remain, so
+        nothing of it shows.)  Both the probe and the render read the
+        winning tile, so V is thousands below zero at both key reads:
+        both fail, the decode of the untouched 1 ends the loop, and V is
         nowhere near -1.  The same expression runs in the move pass,
         which never sees a 2048 (the game ends before the next move),
         and in the idle pass, which reads only M[0] (see PASSES):
@@ -167,13 +176,14 @@ M[99],k,j,l,P,x;
    Tiles are powers of two, which keeps the whole merge in bare bit-ops --
    and makes ONE write expression serve both emit and flush:  l+P&~P  is
    2l on a merge (l==P), l on a block, and degenerates to exactly l when
-   P is 0 or 1 (l is always even).  Every iteration starts with P=1: the
-   loop condition is  P=k||(...)  and  ||  yields exactly 1 whenever the
-   loop goes on (a read overwrites it, a flush inherits it) -- and that
-   1, the only odd P in the program, then doubles as the PHASE FLAG: the
-   hold update  P&~-~l  (the body's value, see there) is P&~l untouched
-   for even tiles but exactly 0 at a flush, so the loop needs no second
-   phase test (and the win term P&2048 is 0 there).
+   P is 0 or 1 (l is always even).  Every iteration starts with P=0: the
+   increment's  P&=2048  (see STATUS, Win) clears P after every ordinary
+   step (a read overwrites it, a flush inherits it) -- and that 0 then
+   doubles as the PHASE FLAG: the hold update  P&~-~l  (the body's
+   value, see there) is P&~l untouched for even tiles but exactly 0 at
+   a flush, so the loop needs no second phase test (and the win term is
+   0 there).  Earlier cards hoisted a 1 into P from the loop condition
+   instead; 0 serves every one of these roles equally.
    (~-~l is ~(l+1); l is always even, so l+1 == l|1 and this one unary
    ripple equals the two-mask form ~l&~1 everywhere it runs.)
 
@@ -199,9 +209,9 @@ main(V){
        none has started yet), and the tail runs: reset both cursors,
        then choose the next pass by the sign of V -- the value of the
        k||(...) is 1 unless the new x is 0, which ends the loop (see
-       PASSES), and that value is assigned to P: the  P=  in front costs
-       two characters and replaces the four of a  ,P=1  increment, since
-       the one place P must be 1 is the start of a flush step:
+       PASSES).  (Earlier cards assigned that value to P as the 1 a
+       flush step inherits; the increment's  P&=2048  now leaves the 0
+       a flush step is equally happy with, see the merge notes above.)
          V < 0   (a probe or the render ended)  ->  read the key on
                  descriptor V/=2 into x.  After the probe that descriptor
                  is -2 or -1: the read fails at once, x stays 4, and 4
@@ -223,22 +233,22 @@ main(V){
                  cell no board pass reads); then V=-4, the probe's base;
                  the tuple is negated, so its value is 4, the probe
                  code: x=4.
-       INCREMENT: the WIN DELIVERY alone (see header; 0 at a flush, P
-       being 1).  The hold update used to live here as well; it is now
-       the VALUE of the body's conditional (see the body), which saved
-       the increment's whole second clause.  P itself is not reset here:
-       the condition does it before every step (above), so a read
-       iteration overwrites the 1 and a flush iteration inherits exactly
-       the 1 it needs -- which is why a flush step needs no P of its
-       own (see the body). */
+       INCREMENT: the WIN DELIVERY alone (see header), as a compound
+       assignment: V-=P&=2048 takes the tile's 2048 bit off V and leaves
+       P as exactly that bit -- 0 after every ordinary step -- so a read
+       iteration overwrites it and a flush iteration inherits exactly
+       the 0 it needs (merge notes, above): a flush step needs no P of its own,
+       and the condition no longer hoists one.  The hold update used to
+       live here as well; it is now the VALUE of the body's conditional
+       (see the body). */
     for(system("stty cbreak");
-        P=k||(j=k=16,
+        k||(j=k=16,
             x=V<0
                 ?   read(V/=2,&x,3),x%52946/4
                 :   V&&M[V=rand()%k+1]
                     ?   85
                     :   -(M[V]=2<<rand()%2,V=-4));
-        V-=P&2048)
+        V-=P&=2048)
         /* The body, one step of the pass, a single expression, and that
            expression is an ASSIGNMENT TO THE HOLD:
              l = flush? || (read, and emit?)
@@ -253,7 +263,7 @@ main(V){
            at the write site, keyed on the value written.  Either arm
            then yields the NEW HOLD and the outer l= stores it: the store
            arm's comma expression ends in P&~(l+1), which is 0 right
-           after a merge (P==l) and after a flush (P==1, l even), else
+           after a merge (P==l) and after a flush (P is 0 there), else
            the tile just read; the skipped-store arm is l|P, which keeps
            l when the cell was empty (P==0) and takes P when nothing was
            held (l==0) -- the only two ways to reach it.  Every l on the
